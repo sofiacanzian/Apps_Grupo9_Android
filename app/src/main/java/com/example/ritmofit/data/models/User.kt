@@ -1,13 +1,20 @@
+// Archivo: User.kt
 package com.example.ritmofit.data.models
 
 /**
  * Modelo de datos para el usuario de RitmoFit
  */
 data class User(
-    val id: String = "",
-    val email: String = "",
-    val name: String = "",
-    val profilePicture: String? = null, // URL de la foto opcional
+    val id: String,
+    val name: String,
+    val email: String,
+    val birthDate: String? = null,
+    val age: Int? = null,
+    val gender: String? = null,
+    val height: Double? = null,
+    val weight: Double? = null,
+    val partnerNumber: String? = null,
+    val profilePicture: String? = null,
     val isVerified: Boolean = false,
     val createdAt: Long = System.currentTimeMillis()
 )

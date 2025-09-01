@@ -1,25 +1,26 @@
 package com.example.ritmofit.utils
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.compose.material3.*
+import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.ritmofit.ui.theme.auth.LoginScreen
 import com.example.ritmofit.ui.theme.home.HomeScreen
 import com.example.ritmofit.ui.theme.profile.ProfileScreen
+import com.example.ritmofit.ui.theme.classes.ClassDetailScreen
+import com.example.ritmofit.ui.theme.reservations.ReservationsScreen
+import com.example.ritmofit.ui.theme.history.HistoryScreen
+import com.example.ritmofit.ui.theme.reservations.ReservationsViewModel
 
-import androidx.compose.foundation.layout.*
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
-
-/**
- * Rutas de navegación de la aplicación
- */
 object RitmoFitDestinations {
     const val LOGIN_ROUTE = "login"
     const val HOME_ROUTE = "home"
@@ -30,23 +31,21 @@ object RitmoFitDestinations {
     const val CLASS_DETAIL_ROUTE = "class_detail"
 }
 
-/**
- * Composable principal de navegación
- */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RitmoFitNavigation(
     navController: NavHostController = rememberNavController(),
     startDestination: String = RitmoFitDestinations.LOGIN_ROUTE
 ) {
+    val reservationsViewModel: ReservationsViewModel = viewModel()
+
     NavHost(
         navController = navController,
         startDestination = startDestination
     ) {
-        // Pantalla de Login
         composable(RitmoFitDestinations.LOGIN_ROUTE) {
             LoginScreen(
                 onLoginSuccess = {
-                    // Navegar a Home y limpiar el stack de navegación
                     navController.navigate(RitmoFitDestinations.HOME_ROUTE) {
                         popUpTo(RitmoFitDestinations.LOGIN_ROUTE) {
                             inclusive = true
@@ -56,7 +55,6 @@ fun RitmoFitNavigation(
             )
         }
 
-        // Pantalla Principal (Home)
         composable(RitmoFitDestinations.HOME_ROUTE) {
             HomeScreen(
                 onNavigateToReservations = {
@@ -77,14 +75,12 @@ fun RitmoFitNavigation(
             )
         }
 
-        // Pantalla de Perfil
         composable(RitmoFitDestinations.PROFILE_ROUTE) {
             ProfileScreen(
                 onNavigateBack = {
                     navController.popBackStack()
                 },
                 onLogout = {
-                    // Volver al login y limpiar stack
                     navController.navigate(RitmoFitDestinations.LOGIN_ROUTE) {
                         popUpTo(0) {
                             inclusive = true
@@ -94,7 +90,6 @@ fun RitmoFitNavigation(
             )
         }
 
-        // Pantalla de Mis Reservas
         composable(RitmoFitDestinations.RESERVATIONS_ROUTE) {
             ReservationsScreen(
                 onNavigateBack = {
@@ -102,24 +97,11 @@ fun RitmoFitNavigation(
                 },
                 onClassClick = { classId ->
                     navController.navigate("${RitmoFitDestinations.CLASS_DETAIL_ROUTE}/$classId")
-                }
-            )
-        }
-
-        // Pantalla de Scanner QR
-        composable(RitmoFitDestinations.QR_SCANNER_ROUTE) {
-            QrScannerScreen(
-                onNavigateBack = {
-                    navController.popBackStack()
                 },
-                onScanSuccess = { qrData ->
-                    // Manejar resultado del QR y volver
-                    navController.popBackStack()
-                }
+                reservationsViewModel = reservationsViewModel
             )
         }
 
-        // Pantalla de Historial
         composable(RitmoFitDestinations.HISTORY_ROUTE) {
             HistoryScreen(
                 onNavigateBack = {
@@ -128,7 +110,6 @@ fun RitmoFitNavigation(
             )
         }
 
-        // Pantalla de Detalle de Clase
         composable("${RitmoFitDestinations.CLASS_DETAIL_ROUTE}/{classId}") { backStackEntry ->
             val classId = backStackEntry.arguments?.getString("classId") ?: ""
             ClassDetailScreen(
@@ -137,101 +118,51 @@ fun RitmoFitNavigation(
                     navController.popBackStack()
                 },
                 onReservationSuccess = {
-                    // Opcional: navegar a reservas o mostrar confirmación
                     navController.popBackStack()
-                }
+                },
+                reservationsViewModel = reservationsViewModel
+            )
+        }
+
+        composable(RitmoFitDestinations.QR_SCANNER_ROUTE) {
+            QrScannerPlaceholder(
+                onNavigateBack = { navController.popBackStack() },
+                onScanSuccess = { navController.popBackStack() }
             )
         }
     }
 }
 
-// Pantallas temporales - las implementaremos después
-
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ReservationsScreen(
-    onNavigateBack: () -> Unit,
-    onClassClick: (String) -> Unit
-) {
-    androidx.compose.foundation.layout.Box(
-        modifier = androidx.compose.ui.Modifier.fillMaxSize(),
-        contentAlignment = androidx.compose.ui.Alignment.Center
-    ) {
-        androidx.compose.foundation.layout.Column(
-            horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
-        ) {
-            androidx.compose.material3.Text("Mis Reservas")
-            androidx.compose.foundation.layout.Spacer(modifier = androidx.compose.ui.Modifier.height(16.dp))
-            androidx.compose.material3.Button(onClick = onNavigateBack) {
-                androidx.compose.material3.Text("Volver")
-            }
-        }
-    }
-}
-
-@Composable
-fun QrScannerScreen(
+fun QrScannerPlaceholder(
     onNavigateBack: () -> Unit,
     onScanSuccess: (String) -> Unit
 ) {
-    androidx.compose.foundation.layout.Box(
-        modifier = androidx.compose.ui.Modifier.fillMaxSize(),
-        contentAlignment = androidx.compose.ui.Alignment.Center
-    ) {
-        androidx.compose.foundation.layout.Column(
-            horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
-        ) {
-            androidx.compose.material3.Text("Scanner QR")
-            androidx.compose.foundation.layout.Spacer(modifier = androidx.compose.ui.Modifier.height(16.dp))
-            androidx.compose.material3.Button(onClick = onNavigateBack) {
-                androidx.compose.material3.Text("Volver")
-            }
-            androidx.compose.material3.Button(onClick = { onScanSuccess("mock_qr_data") }) {
-                androidx.compose.material3.Text("Simular Scan")
-            }
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Scanner QR") },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Volver")
+                    }
+                }
+            )
         }
-    }
-}
-
-@Composable
-fun HistoryScreen(
-    onNavigateBack: () -> Unit
-) {
-    androidx.compose.foundation.layout.Box(
-        modifier = androidx.compose.ui.Modifier.fillMaxSize(),
-        contentAlignment = androidx.compose.ui.Alignment.Center
-    ) {
-        androidx.compose.foundation.layout.Column(
-            horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            androidx.compose.material3.Text("Historial")
-            androidx.compose.foundation.layout.Spacer(modifier = androidx.compose.ui.Modifier.height(16.dp))
-            androidx.compose.material3.Button(onClick = onNavigateBack) {
-                androidx.compose.material3.Text("Volver")
-            }
-        }
-    }
-}
-
-@Composable
-fun ClassDetailScreen(
-    classId: String,
-    onNavigateBack: () -> Unit,
-    onReservationSuccess: () -> Unit
-) {
-    androidx.compose.foundation.layout.Box(
-        modifier = androidx.compose.ui.Modifier.fillMaxSize(),
-        contentAlignment = androidx.compose.ui.Alignment.Center
-    ) {
-        androidx.compose.foundation.layout.Column(
-            horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
-        ) {
-            androidx.compose.material3.Text("Detalle de Clase: $classId")
-            androidx.compose.foundation.layout.Spacer(modifier = androidx.compose.ui.Modifier.height(16.dp))
-            androidx.compose.material3.Button(onClick = onNavigateBack) {
-                androidx.compose.material3.Text("Volver")
-            }
-            androidx.compose.material3.Button(onClick = onReservationSuccess) {
-                androidx.compose.material3.Text("Reservar")
+            Text("Aquí irá el lector QR 📷")
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(onClick = { onScanSuccess("mock_qr_data") }) {
+                Text("Simular Scan")
             }
         }
     }

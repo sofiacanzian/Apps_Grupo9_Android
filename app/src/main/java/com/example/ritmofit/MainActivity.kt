@@ -1,3 +1,4 @@
+// Archivo: MainActivity.kt
 package com.example.ritmofit
 
 import android.os.Bundle
@@ -14,7 +15,6 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             RitmoFitTheme {
-                // Usar el sistema de navegación
                 val navController = rememberNavController()
                 RitmoFitNavigation(navController = navController)
             }

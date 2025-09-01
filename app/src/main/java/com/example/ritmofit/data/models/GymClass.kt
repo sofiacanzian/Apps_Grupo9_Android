@@ -1,3 +1,4 @@
+// Archivo: GymClass.kt
 package com.example.ritmofit.data.models
 
 /**
@@ -5,7 +6,7 @@ package com.example.ritmofit.data.models
  */
 data class GymClass(
     val id: String = "",
-    val name: String = "", // "Funcional", "Yoga", "Spinning"
+    val name: String = "",
     val description: String = "",
     val instructor: Instructor = Instructor(),
     val location: GymLocation = GymLocation(),
@@ -33,7 +34,7 @@ data class Instructor(
  */
 data class GymLocation(
     val id: String = "",
-    val name: String = "", // "Palermo", "Villa Crespo"
+    val name: String = "",
     val address: String = "",
     val latitude: Double = 0.0,
     val longitude: Double = 0.0,
@@ -44,10 +45,10 @@ data class GymLocation(
  * Horario de la clase
  */
 data class ClassSchedule(
-    val dayOfWeek: Int = 1, // 1=Lunes, 7=Domingo
-    val startTime: String = "", // "18:00"
-    val endTime: String = "", // "19:00"
-    val date: String = "" // "2025-08-29" para clases específicas
+    val dayOfWeek: Int = 1,
+    val startTime: String = "",
+    val endTime: String = "",
+    val date: String = ""
 )
 
 /**
@@ -73,6 +74,6 @@ data class ClassFilters(
  * Rango de tiempo para filtros
  */
 data class TimeRange(
-    val startTime: String, // "06:00"
-    val endTime: String    // "22:00"
+    val startTime: String,
+    val endTime: String
 )
