@@ -1,4 +1,4 @@
-package com.example.ritmofit.ui.theme.profile
+package com.example.ritmofit.profile
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons

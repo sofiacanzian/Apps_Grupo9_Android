@@ -15,11 +15,11 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.ritmofit.ui.theme.auth.LoginScreen
 import com.example.ritmofit.ui.theme.home.HomeScreen
-import com.example.ritmofit.ui.theme.profile.ProfileScreen
+import com.example.ritmofit.profile.ProfileScreen
 import com.example.ritmofit.ui.theme.classes.ClassDetailScreen
-import com.example.ritmofit.ui.theme.reservations.ReservationsScreen
+import com.example.ritmofit.ui.theme.reservation.ReservationsScreen
 import com.example.ritmofit.ui.theme.history.HistoryScreen
-import com.example.ritmofit.ui.theme.reservations.ReservationsViewModel
+import com.example.ritmofit.ui.theme.reservation.ReservationsViewModel
 
 object RitmoFitDestinations {
     const val LOGIN_ROUTE = "login"

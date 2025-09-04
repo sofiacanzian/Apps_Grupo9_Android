@@ -1,4 +1,4 @@
-package com.example.ritmofit.ui.theme.profile
+package com.example.ritmofit.profile
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf

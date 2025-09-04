@@ -12,7 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.ritmofit.ui.theme.home.getMockClasses
-import com.example.ritmofit.ui.theme.reservations.ReservationsViewModel
+import com.example.ritmofit.ui.theme.reservation.ReservationsViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

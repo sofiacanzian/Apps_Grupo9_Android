@@ -1,4 +1,4 @@
-package com.example.ritmofit.ui.theme.reservations
+package com.example.ritmofit.ui.theme.reservation
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
