@@ -1,4 +1,4 @@
-// Archivo: MainActivity.kt
+// Archivo: MainActivity.kt (Corregido)
 package com.example.ritmofit
 
 import android.os.Bundle
@@ -6,6 +6,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.navigation.compose.rememberNavController
+import androidx.compose.runtime.Composable
 import com.example.ritmofit.utils.RitmoFitNavigation
 import com.example.ritmofit.ui.theme.theme.RitmoFitTheme
 
@@ -14,10 +15,15 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            RitmoFitTheme {
-                val navController = rememberNavController()
-                RitmoFitNavigation(navController = navController)
-            }
+            RitmoFitApp()
         }
+    }
+}
+
+@Composable
+fun RitmoFitApp() {
+    RitmoFitTheme {
+        val navController = rememberNavController()
+        RitmoFitNavigation(navController = navController)
     }
 }

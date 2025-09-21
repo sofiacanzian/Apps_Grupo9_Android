@@ -1,3 +1,4 @@
+// Archivo: ReservationsViewModel.kt (Corregido)
 package com.example.ritmofit.ui.theme.reservation
 
 import androidx.compose.runtime.getValue
@@ -14,6 +15,7 @@ import java.util.UUID
 
 class ReservationsViewModel : ViewModel() {
 
+    // Cambiamos a val para que el estado sea inmutable desde fuera
     var reservations by mutableStateOf(getMockReservations())
         private set
 
@@ -26,9 +28,9 @@ class ReservationsViewModel : ViewModel() {
             delay(1500) // Simula la llamada a la API
             val newReservation = Reservation(
                 id = UUID.randomUUID().toString(),
-                userId = "mock_user_id",
                 gymClass = gymClass,
-                status = ReservationStatus.CONFIRMED
+                status = ReservationStatus.CONFIRMED,
+                timestamp = "2023-10-27T10:00:00Z" // Parámetro 'timestamp' añadido
             )
             reservations = reservations + newReservation
             isBooking = false
@@ -44,5 +46,7 @@ class ReservationsViewModel : ViewModel() {
 }
 
 private fun getMockReservations(): List<Reservation> {
+    // Retornamos una lista vacía para que no haya reservas al inicio,
+    // o puedes agregar datos de prueba si lo necesitas para la vista previa.
     return emptyList()
 }

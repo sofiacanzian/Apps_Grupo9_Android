@@ -1,40 +1,27 @@
+// Archivo: HistoryScreen.kt
 package com.example.ritmofit.ui.theme.history
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.example.ritmofit.data.models.Reservation
-import com.example.ritmofit.data.models.ReservationStatus
-import com.example.ritmofit.ui.theme.home.getMockClasses
+import com.example.ritmofit.data.models.GymClass
+import com.example.ritmofit.data.models.Location
+import com.example.ritmofit.data.models.Schedule
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HistoryScreen(
     onNavigateBack: () -> Unit
 ) {
-    val mockHistory = listOf(
-        Reservation(
-            id = "h1",
-            userId = "u1",
-            gymClass = getMockClasses()[2],
-            status = ReservationStatus.COMPLETED,
-            checkedInAt = System.currentTimeMillis()
-        ),
-        Reservation(
-            id = "h2",
-            userId = "u1",
-            gymClass = getMockClasses()[3],
-            status = ReservationStatus.COMPLETED,
-            checkedInAt = System.currentTimeMillis()
-        )
-    )
-
     Scaffold(
         topBar = {
             TopAppBar(
@@ -47,23 +34,54 @@ fun HistoryScreen(
             )
         }
     ) { paddingValues ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            items(mockHistory) { attendance ->
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(attendance.gymClass.name, style = MaterialTheme.typography.titleMedium)
-                        Text("Sede: ${attendance.gymClass.location.name}")
-                        Text("Fecha: ${attendance.gymClass.schedule.date}")
-                    }
+        // Aquí debes usar el ViewModel para obtener los datos reales.
+        // Por ahora, usamos datos de prueba para que compile.
+        val mockHistory = listOf(
+            GymClass(
+                id = "clase1",
+                name = "Yoga Matutino",
+                description = "Clase de yoga para empezar el día con energía.",
+                schedule = Schedule(id = "sch1", startTime = "09:00", endTime = "10:00", day = "Lunes", gymClassId = "clase1"),
+                duration = 60,
+                instructor = "Laura",
+                location = Location(id = "loc1", name = "Salón de Yoga"),
+                difficulty = "Baja",
+                availableSpots = 5,
+                imageUrl = "https://example.com/yoga.jpg",
+                maxCapacity = 15
+            ),
+            GymClass(
+                id = "clase2",
+                name = "Cardio Intenso",
+                description = "Entrenamiento cardiovascular de alta intensidad.",
+                schedule = Schedule(id = "sch2", startTime = "18:00", endTime = "18:45", day = "Miércoles", gymClassId = "clase2"),
+                duration = 45,
+                instructor = "Carlos",
+                location = Location(id = "loc2", name = "Salón Principal"),
+                difficulty = "Alta",
+                availableSpots = 10,
+                imageUrl = "https://example.com/cardio.jpg",
+                maxCapacity = 20
+            )
+        )
+        if (mockHistory.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("No tienes historial de asistencias.")
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .padding(16.dp)
+            ) {
+                items(mockHistory) { gymClass ->
+                    Text(text = gymClass.name)
                 }
             }
         }

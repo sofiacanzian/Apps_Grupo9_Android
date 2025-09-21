@@ -1,3 +1,4 @@
+// Archivo: ReservationsScreen.kt (Corregido)
 package com.example.ritmofit.ui.theme.reservation
 
 import androidx.compose.foundation.clickable
@@ -11,13 +12,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.filled.Delete
-import com.example.ritmofit.ui.theme.reservation.ReservationsViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReservationsScreen(
     onNavigateBack: () -> Unit,
-    onClassClick: (String) -> Unit,
+    onClassClick: (String) -> Unit, // El onClassClick ahora acepta un String (el ID de la clase)
     reservationsViewModel: ReservationsViewModel
 ) {
     Scaffold(
@@ -58,7 +58,7 @@ fun ReservationsScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { onClassClick(reservation.gymClass.id) }
+                                .clickable { onClassClick(reservation.gymClass.id) } // Pasamos el ID de la clase
                                 .padding(16.dp),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {

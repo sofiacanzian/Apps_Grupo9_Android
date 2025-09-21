@@ -1,3 +1,4 @@
+// Archivo: ProfileViewModel.kt (Sin cambios, ya que está bien)
 package com.example.ritmofit.profile
 
 import androidx.compose.runtime.getValue
@@ -10,67 +11,24 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class ProfileViewModel : ViewModel() {
-
     var user by mutableStateOf(getMockUser())
         private set
 
     var isEditing by mutableStateOf(false)
         private set
 
-    var name by mutableStateOf(user.name)
+    var username by mutableStateOf(user.username)
         private set
 
     var email by mutableStateOf(user.email)
         private set
 
-    var birthDate by mutableStateOf(user.birthDate ?: "")
-        private set
-
-    var age by mutableStateOf(user.age?.toString() ?: "")
-        private set
-
-    var gender by mutableStateOf(user.gender ?: "")
-        private set
-
-    var height by mutableStateOf(user.height?.toString() ?: "")
-        private set
-
-    var weight by mutableStateOf(user.weight?.toString() ?: "")
-        private set
-
-    var partnerNumber by mutableStateOf(user.partnerNumber ?: "")
-        private set
-
-    fun onNameChange(newName: String) {
-        name = newName
+    fun onUsernameChange(newUsername: String) {
+        username = newUsername
     }
 
     fun onEmailChange(newEmail: String) {
         email = newEmail
-    }
-
-    fun onBirthDateChange(newDate: String) {
-        birthDate = newDate
-    }
-
-    fun onAgeChange(newAge: String) {
-        age = newAge
-    }
-
-    fun onGenderChange(newGender: String) {
-        gender = newGender
-    }
-
-    fun onHeightChange(newHeight: String) {
-        height = newHeight
-    }
-
-    fun onWeightChange(newWeight: String) {
-        weight = newWeight
-    }
-
-    fun onPartnerNumberChange(newNumber: String) {
-        partnerNumber = newNumber
     }
 
     fun toggleEditMode() {
@@ -81,14 +39,8 @@ class ProfileViewModel : ViewModel() {
         viewModelScope.launch {
             delay(1000) // Simula la espera de la red
             user = user.copy(
-                name = name,
-                email = email,
-                birthDate = birthDate,
-                age = age.toIntOrNull(),
-                gender = gender,
-                height = height.toDoubleOrNull(),
-                weight = weight.toDoubleOrNull(),
-                partnerNumber = partnerNumber
+                username = username,
+                email = email
             )
             isEditing = false
         }
@@ -105,13 +57,7 @@ class ProfileViewModel : ViewModel() {
 fun getMockUser(): User {
     return User(
         id = "1",
-        name = "Horacio",
-        email = "horacio@uade.edu.ar",
-        birthDate = "15/05/1990",
-        age = 34,
-        gender = "Masculino",
-        height = 1.75,
-        weight = 75.0,
-        partnerNumber = "12345"
+        username = "horacio.uade",
+        email = "horacio@uade.edu.ar"
     )
 }

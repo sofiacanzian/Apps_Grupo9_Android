@@ -1,28 +1,52 @@
 package com.example.ritmofit.utils
 
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
+import com.example.ritmofit.home.HomeScreen
+import com.example.ritmofit.ui.theme.auth.LoginScreen
+import com.example.ritmofit.ui.theme.auth.OtpScreen
+import com.example.ritmofit.ui.theme.auth.AuthViewModel
+import com.example.ritmofit.ui.theme.classes.ClassDetailScreen
+import com.example.ritmofit.ui.theme.history.HistoryScreen
+import com.example.ritmofit.ui.theme.reservation.ReservationsScreen
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.*
-import androidx.compose.foundation.layout.*
+import androidx.compose.ui.Modifier
+import com.example.ritmofit.home.HomeViewModel
+import com.example.ritmofit.ui.theme.classes.ClassesViewModel
+import com.example.ritmofit.ui.theme.reservation.ReservationsViewModel
+import com.example.ritmofit.profile.ProfileScreen
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.ritmofit.ui.theme.auth.LoginScreen
-import com.example.ritmofit.ui.theme.home.HomeScreen
-import com.example.ritmofit.profile.ProfileScreen
-import com.example.ritmofit.ui.theme.classes.ClassDetailScreen
-import com.example.ritmofit.ui.theme.reservation.ReservationsScreen
-import com.example.ritmofit.ui.theme.history.HistoryScreen
-import com.example.ritmofit.ui.theme.reservation.ReservationsViewModel
+import com.example.ritmofit.data.models.GymClass
+import kotlinx.coroutines.flow.onEach
 
 object RitmoFitDestinations {
     const val LOGIN_ROUTE = "login"
+    const val OTP_ROUTE = "otp"
+    const val OTP_ARG = "email"
     const val HOME_ROUTE = "home"
     const val PROFILE_ROUTE = "profile"
     const val RESERVATIONS_ROUTE = "reservations"
@@ -37,20 +61,45 @@ fun RitmoFitNavigation(
     navController: NavHostController = rememberNavController(),
     startDestination: String = RitmoFitDestinations.LOGIN_ROUTE
 ) {
+    val authViewModel: AuthViewModel = viewModel()
+
+    LaunchedEffect(Unit) {
+        authViewModel.navigationEvents.collect { event ->
+            when (event) {
+                is AuthViewModel.NavigationEvent.NavigateToOtp -> {
+                    navController.navigate("${RitmoFitDestinations.OTP_ROUTE}/${event.email}")
+                }
+                is AuthViewModel.NavigationEvent.NavigateToHome -> {
+                    navController.navigate(RitmoFitDestinations.HOME_ROUTE) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                }
+            }
+        }
+    }
+
     val reservationsViewModel: ReservationsViewModel = viewModel()
+    val classesViewModel: ClassesViewModel = viewModel()
+    val homeViewModel: HomeViewModel = viewModel()
 
     NavHost(
         navController = navController,
         startDestination = startDestination
     ) {
         composable(RitmoFitDestinations.LOGIN_ROUTE) {
-            LoginScreen(
-                onLoginSuccess = {
-                    navController.navigate(RitmoFitDestinations.HOME_ROUTE) {
-                        popUpTo(RitmoFitDestinations.LOGIN_ROUTE) {
-                            inclusive = true
-                        }
-                    }
+            LoginScreen(authViewModel = authViewModel)
+        }
+
+        composable(
+            route = "${RitmoFitDestinations.OTP_ROUTE}/{${RitmoFitDestinations.OTP_ARG}}",
+            arguments = listOf(navArgument(RitmoFitDestinations.OTP_ARG) { type = NavType.StringType })
+        ) { backStackEntry ->
+            val email = backStackEntry.arguments?.getString(RitmoFitDestinations.OTP_ARG) ?: ""
+            OtpScreen(
+                email = email,
+                authViewModel = authViewModel,
+                onNavigateBack = {
+                    navController.popBackStack()
                 }
             )
         }
@@ -69,9 +118,11 @@ fun RitmoFitNavigation(
                 onNavigateToHistory = {
                     navController.navigate(RitmoFitDestinations.HISTORY_ROUTE)
                 },
-                onClassClick = { classId ->
-                    navController.navigate("${RitmoFitDestinations.CLASS_DETAIL_ROUTE}/$classId")
-                }
+                onClassClick = { gymClass ->
+                    navController.navigate("${RitmoFitDestinations.CLASS_DETAIL_ROUTE}/${gymClass.id}")
+                },
+                homeViewModel = homeViewModel,
+                classesViewModel = classesViewModel
             )
         }
 
@@ -95,8 +146,8 @@ fun RitmoFitNavigation(
                 onNavigateBack = {
                     navController.popBackStack()
                 },
-                onClassClick = { classId ->
-                    navController.navigate("${RitmoFitDestinations.CLASS_DETAIL_ROUTE}/$classId")
+                onClassClick = { gymClassId ->
+                    navController.navigate("${RitmoFitDestinations.CLASS_DETAIL_ROUTE}/${gymClassId}")
                 },
                 reservationsViewModel = reservationsViewModel
             )
@@ -119,8 +170,7 @@ fun RitmoFitNavigation(
                 },
                 onReservationSuccess = {
                     navController.popBackStack()
-                },
-                reservationsViewModel = reservationsViewModel
+                }
             )
         }
 

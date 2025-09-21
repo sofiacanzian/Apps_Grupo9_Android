@@ -1,17 +1,19 @@
+// Archivo: ClassDetailScreen.kt (Corregido)
 package com.example.ritmofit.ui.theme.classes
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.example.ritmofit.ui.theme.home.getMockClasses
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.ritmofit.ui.theme.reservation.ReservationsViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -20,9 +22,14 @@ fun ClassDetailScreen(
     classId: String,
     onNavigateBack: () -> Unit,
     onReservationSuccess: () -> Unit,
-    reservationsViewModel: ReservationsViewModel
+    classDetailViewModel: ClassDetailViewModel = viewModel()
 ) {
-    val gymClass = getMockClasses().find { it.id == classId }
+    val reservationsViewModel: ReservationsViewModel = viewModel()
+    val gymClass by classDetailViewModel.classState.collectAsState()
+
+    LaunchedEffect(key1 = classId) {
+        classDetailViewModel.fetchClassDetails(classId)
+    }
 
     Scaffold(
         topBar = {
@@ -36,25 +43,26 @@ fun ClassDetailScreen(
             )
         }
     ) { paddingValues ->
-        gymClass?.let {
+        if (gymClass == null) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
+        } else {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
-                    .verticalScroll(rememberScrollState())
                     .padding(16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Text(
-                    text = it.name,
+                    text = gymClass!!.name,
                     style = MaterialTheme.typography.headlineLarge,
                     fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = it.description,
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.padding(horizontal = 16.dp)
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Card(
@@ -67,31 +75,21 @@ fun ClassDetailScreen(
                         modifier = Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text("Horario: ${it.schedule.startTime} - ${it.schedule.endTime}")
-                        Text("Duración: ${it.duration} minutos")
-                        Text("Instructor: ${it.instructor.name}")
-                        Text("Ubicación: ${it.location.name}")
-                        Text("Dificultad: ${it.difficulty.displayName}")
+                        Text("Horario: ${gymClass!!.schedule.startTime}")
+                        Text("Ubicación: ${gymClass!!.location.name}")
                     }
                 }
                 Spacer(modifier = Modifier.height(16.dp))
                 Button(
                     onClick = {
-                        reservationsViewModel.createReservation(it)
+                        reservationsViewModel.createReservation(gymClass!!)
                         onReservationSuccess()
                     },
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = it.availableSpots > 0 && !reservationsViewModel.isBooking
+                    enabled = !reservationsViewModel.isBooking
                 ) {
-                    Text(if (reservationsViewModel.isBooking) "Reservando..." else "Reservar un cupo (${it.availableSpots} disponibles)")
+                    Text(if (reservationsViewModel.isBooking) "Reservando..." else "Reservar un cupo")
                 }
-            }
-        } ?: run {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("Clase no encontrada", style = MaterialTheme.typography.headlineSmall)
             }
         }
     }
