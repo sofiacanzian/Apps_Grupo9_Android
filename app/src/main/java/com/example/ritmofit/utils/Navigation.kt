@@ -1,3 +1,4 @@
+// Archivo: Navigation.kt
 package com.example.ritmofit.utils
 
 import androidx.compose.runtime.Composable
@@ -8,23 +9,12 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
-import com.example.ritmofit.home.HomeScreen
-import com.example.ritmofit.ui.theme.auth.LoginScreen
-import com.example.ritmofit.ui.theme.auth.OtpScreen
-import com.example.ritmofit.ui.theme.auth.AuthViewModel
-import com.example.ritmofit.ui.theme.classes.ClassDetailScreen
-import com.example.ritmofit.ui.theme.history.HistoryScreen
-import com.example.ritmofit.ui.theme.reservation.ReservationsScreen
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.*
 import androidx.compose.ui.Modifier
-import com.example.ritmofit.home.HomeViewModel
-import com.example.ritmofit.ui.theme.classes.ClassesViewModel
-import com.example.ritmofit.ui.theme.reservation.ReservationsViewModel
-import com.example.ritmofit.profile.ProfileScreen
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -40,141 +30,137 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
+import com.example.ritmofit.home.HomeScreen
+import com.example.ritmofit.ui.theme.auth.LoginScreen
+import com.example.ritmofit.ui.theme.auth.OtpScreen
+import com.example.ritmofit.ui.theme.auth.AuthViewModel
+import com.example.ritmofit.ui.theme.classes.ClassesScreen
+import com.example.ritmofit.ui.theme.history.HistoryScreen
+import com.example.ritmofit.profile.ProfileScreen
+import com.example.ritmofit.ui.theme.reservation.ReservationsScreen
 import com.example.ritmofit.data.models.GymClass
-import kotlinx.coroutines.flow.onEach
-
-object RitmoFitDestinations {
-    const val LOGIN_ROUTE = "login"
-    const val OTP_ROUTE = "otp"
-    const val OTP_ARG = "email"
-    const val HOME_ROUTE = "home"
-    const val PROFILE_ROUTE = "profile"
-    const val RESERVATIONS_ROUTE = "reservations"
-    const val QR_SCANNER_ROUTE = "qr_scanner"
-    const val HISTORY_ROUTE = "history"
-    const val CLASS_DETAIL_ROUTE = "class_detail"
-}
+import com.example.ritmofit.data.models.SessionManager
+import com.example.ritmofit.ui.theme.classes.ClassDetailScreen
+import com.example.ritmofit.home.HomeViewModel
+import com.example.ritmofit.ui.theme.classes.ClassesViewModel
+import com.example.ritmofit.ui.theme.classes.ClassDetailViewModel
+import com.example.ritmofit.ui.theme.history.HistoryViewModel
+import com.example.ritmofit.profile.ProfileViewModel
+import com.example.ritmofit.ui.theme.reservation.ReservationsViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RitmoFitNavigation(
-    navController: NavHostController = rememberNavController(),
-    startDestination: String = RitmoFitDestinations.LOGIN_ROUTE
-) {
-    val authViewModel: AuthViewModel = viewModel()
+fun RitmoFitNavigation() {
+    val navController = rememberNavController()
+    val authViewModel: AuthViewModel = viewModel(factory = AuthViewModel.Factory)
+    val isUserAuthenticated by authViewModel.isAuthenticated.collectAsState()
 
-    LaunchedEffect(Unit) {
-        authViewModel.navigationEvents.collect { event ->
-            when (event) {
-                is AuthViewModel.NavigationEvent.NavigateToOtp -> {
-                    navController.navigate("${RitmoFitDestinations.OTP_ROUTE}/${event.email}")
-                }
-                is AuthViewModel.NavigationEvent.NavigateToHome -> {
-                    navController.navigate(RitmoFitDestinations.HOME_ROUTE) {
-                        popUpTo(0) { inclusive = true }
-                    }
-                }
+    LaunchedEffect(isUserAuthenticated) {
+        if (isUserAuthenticated) {
+            navController.navigate("home") {
+                popUpTo(0) { inclusive = true }
             }
         }
     }
 
-    val reservationsViewModel: ReservationsViewModel = viewModel()
-    val classesViewModel: ClassesViewModel = viewModel()
-    val homeViewModel: HomeViewModel = viewModel()
-
     NavHost(
         navController = navController,
-        startDestination = startDestination
+        startDestination = if (isUserAuthenticated) "home" else "login"
     ) {
-        composable(RitmoFitDestinations.LOGIN_ROUTE) {
-            LoginScreen(authViewModel = authViewModel)
-        }
-
-        composable(
-            route = "${RitmoFitDestinations.OTP_ROUTE}/{${RitmoFitDestinations.OTP_ARG}}",
-            arguments = listOf(navArgument(RitmoFitDestinations.OTP_ARG) { type = NavType.StringType })
-        ) { backStackEntry ->
-            val email = backStackEntry.arguments?.getString(RitmoFitDestinations.OTP_ARG) ?: ""
-            OtpScreen(
-                email = email,
+        composable("login") {
+            LoginScreen(
                 authViewModel = authViewModel,
-                onNavigateBack = {
-                    navController.popBackStack()
-                }
+                onNavigateToOtp = { email -> navController.navigate("otp/$email") }
             )
         }
 
-        composable(RitmoFitDestinations.HOME_ROUTE) {
+        composable(
+            route = "otp/{email}",
+            arguments = listOf(navArgument("email") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val email = backStackEntry.arguments?.getString("email") ?: ""
+            OtpScreen(
+                email = email,
+                authViewModel = authViewModel,
+                onNavigateBack = { navController.popBackStack() },
+                onVerificationSuccess = { navController.navigate("home") }
+            )
+        }
+
+        composable("home") {
+            val homeViewModel: HomeViewModel = viewModel(factory = HomeViewModel.Factory)
             HomeScreen(
-                onNavigateToReservations = {
-                    navController.navigate(RitmoFitDestinations.RESERVATIONS_ROUTE)
-                },
-                onNavigateToProfile = {
-                    navController.navigate(RitmoFitDestinations.PROFILE_ROUTE)
-                },
-                onNavigateToQrScanner = {
-                    navController.navigate(RitmoFitDestinations.QR_SCANNER_ROUTE)
-                },
-                onNavigateToHistory = {
-                    navController.navigate(RitmoFitDestinations.HISTORY_ROUTE)
-                },
+                onNavigateToReservations = { navController.navigate("reservations") },
+                onNavigateToProfile = { navController.navigate("profile") },
+                onNavigateToQrScanner = { navController.navigate("qrscanner") },
+                onNavigateToHistory = { navController.navigate("history") },
+                onNavigateToClasses = { navController.navigate("classes") },
+                onClassClick = { gymClass -> navController.navigate("classDetail/${gymClass.id}") },
+                homeViewModel = homeViewModel
+            )
+        }
+
+        composable("classes") {
+            val classesViewModel: ClassesViewModel = viewModel(factory = ClassesViewModel.Factory)
+            ClassesScreen(
+                onNavigateBack = { navController.popBackStack() },
                 onClassClick = { gymClass ->
-                    navController.navigate("${RitmoFitDestinations.CLASS_DETAIL_ROUTE}/${gymClass.id}")
+                    navController.navigate("classDetail/${gymClass.id}")
                 },
-                homeViewModel = homeViewModel,
                 classesViewModel = classesViewModel
             )
         }
 
-        composable(RitmoFitDestinations.PROFILE_ROUTE) {
+        composable("profile") {
+            val profileViewModel: ProfileViewModel = viewModel(factory = ProfileViewModel.Factory)
             ProfileScreen(
-                onNavigateBack = {
-                    navController.popBackStack()
-                },
+                onNavigateBack = { navController.popBackStack() },
                 onLogout = {
-                    navController.navigate(RitmoFitDestinations.LOGIN_ROUTE) {
-                        popUpTo(0) {
-                            inclusive = true
-                        }
+                    SessionManager.userId = null
+                    navController.navigate("login") {
+                        popUpTo(0) { inclusive = true }
                     }
-                }
+                },
+                profileViewModel = profileViewModel
             )
         }
 
-        composable(RitmoFitDestinations.RESERVATIONS_ROUTE) {
+        composable("reservations") {
+            val reservationsViewModel: ReservationsViewModel = viewModel(factory = ReservationsViewModel.Factory)
             ReservationsScreen(
-                onNavigateBack = {
-                    navController.popBackStack()
-                },
-                onClassClick = { gymClassId ->
-                    navController.navigate("${RitmoFitDestinations.CLASS_DETAIL_ROUTE}/${gymClassId}")
+                onNavigateBack = { navController.popBackStack() },
+                onClassClick = { gymClass ->
+                    navController.navigate("classDetail/${gymClass.id}")
                 },
                 reservationsViewModel = reservationsViewModel
             )
         }
 
-        composable(RitmoFitDestinations.HISTORY_ROUTE) {
+        composable("history") {
+            val historyViewModel: HistoryViewModel = viewModel(factory = HistoryViewModel.Factory)
             HistoryScreen(
-                onNavigateBack = {
-                    navController.popBackStack()
-                }
+                onNavigateBack = { navController.popBackStack() },
+                onClassClick = { gymClass ->
+                    navController.navigate("classDetail/${gymClass.id}")
+                },
+                historyViewModel = historyViewModel
             )
         }
 
-        composable("${RitmoFitDestinations.CLASS_DETAIL_ROUTE}/{classId}") { backStackEntry ->
+        composable("classDetail/{classId}", arguments = listOf(navArgument("classId") { type = NavType.StringType })) { backStackEntry ->
+            val classDetailViewModel: ClassDetailViewModel = viewModel(factory = ClassDetailViewModel.Factory)
+            val reservationsViewModel: ReservationsViewModel = viewModel(factory = ReservationsViewModel.Factory)
             val classId = backStackEntry.arguments?.getString("classId") ?: ""
             ClassDetailScreen(
                 classId = classId,
-                onNavigateBack = {
-                    navController.popBackStack()
-                },
-                onReservationSuccess = {
-                    navController.popBackStack()
-                }
+                onNavigateBack = { navController.popBackStack() },
+                onReservationSuccess = { navController.popBackStack() },
+                classDetailViewModel = classDetailViewModel,
+                reservationsViewModel = reservationsViewModel
             )
         }
 
-        composable(RitmoFitDestinations.QR_SCANNER_ROUTE) {
+        composable("qrscanner") {
             QrScannerPlaceholder(
                 onNavigateBack = { navController.popBackStack() },
                 onScanSuccess = { navController.popBackStack() }

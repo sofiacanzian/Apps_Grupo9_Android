@@ -1,98 +1,104 @@
-// Archivo: AuthViewModel.kt
 package com.example.ritmofit.ui.theme.auth
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.CreationExtras
+import com.example.ritmofit.RitmoFitApplication
 import com.example.ritmofit.data.models.AuthRequest
-import com.example.ritmofit.network.RetrofitClient
+import com.example.ritmofit.data.models.OtpConfirmationRequest
+import com.example.ritmofit.data.models.SessionManager
+import com.example.ritmofit.data.models.UserResponse
+import com.example.ritmofit.network.ApiService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.receiveAsFlow
-import com.example.ritmofit.data.models.OtpResponse
-import com.example.ritmofit.data.models.User
-import java.lang.Exception
+import java.io.IOException
 
-class AuthViewModel : ViewModel() {
-
-    sealed class NavigationEvent {
-        data class NavigateToOtp(val email: String) : NavigationEvent()
-        object NavigateToHome : NavigationEvent()
-    }
-
-    private val _navigationEvents = Channel<NavigationEvent>(Channel.BUFFERED)
-    val navigationEvents = _navigationEvents.receiveAsFlow()
-
+class AuthViewModel(
+    private val apiService: ApiService
+) : ViewModel() {
     private val _isLoading = MutableStateFlow(false)
-    val isLoading: StateFlow<Boolean> = _isLoading
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
-    private val _loginResult = MutableStateFlow<LoginResult>(LoginResult.Initial)
-    val loginResult: StateFlow<LoginResult> = _loginResult
+    private val _loginResult = MutableStateFlow<Boolean?>(null)
+    val loginResult: StateFlow<Boolean?> = _loginResult.asStateFlow()
 
-    sealed class LoginResult {
-        object Initial : LoginResult()
-        data class Success(val email: String) : LoginResult()
-        data class Error(val message: String) : LoginResult()
-        object OtpConfirmed : LoginResult()
+    private val _otp = MutableStateFlow("")
+    val otp: StateFlow<String> = _otp.asStateFlow()
+
+    private val _isAuthenticated = MutableStateFlow(SessionManager.isLoggedIn)
+    val isAuthenticated: StateFlow<Boolean> = _isAuthenticated.asStateFlow()
+
+    private val _errorMessage = MutableStateFlow<String?>(null)
+    val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
+
+    fun setOtp(newOtp: String) {
+        _otp.value = newOtp
     }
 
     fun sendOtp(email: String) {
-        _isLoading.value = true
-        _loginResult.value = LoginResult.Initial
         viewModelScope.launch {
+            _isLoading.value = true
+            _loginResult.value = null
+            _errorMessage.value = null
             try {
-                // Aquí, el ViewModel ahora espera un objeto Response de la API
-                val response = RetrofitClient.apiService.sendOtp(AuthRequest(email))
-
-                // Verificamos si la respuesta fue exitosa y si tiene un cuerpo
+                val response = apiService.sendOtp(AuthRequest(email))
                 if (response.isSuccessful) {
-                    val otpResponse = response.body()
-                    if (otpResponse != null && otpResponse.message.contains("Código OTP enviado")) {
-                        _loginResult.value = LoginResult.Success(email)
-                        _navigationEvents.send(NavigationEvent.NavigateToOtp(email))
-                    } else {
-                        _loginResult.value = LoginResult.Error("Respuesta inesperada del servidor")
-                    }
+                    _loginResult.value = true
                 } else {
-                    _loginResult.value = LoginResult.Error("Error: ${response.code()}")
+                    _loginResult.value = false
+                    _errorMessage.value = "Error al enviar el OTP. Intente de nuevo."
                 }
             } catch (e: Exception) {
-                _loginResult.value = LoginResult.Error("Error al enviar el código: ${e.message}")
+                _loginResult.value = false
+                _errorMessage.value = "Error de conexión: ${e.message}"
             } finally {
                 _isLoading.value = false
             }
         }
     }
 
-    fun confirmOtp(email: String, otp: String) {
-        _isLoading.value = true
-        _loginResult.value = LoginResult.Initial
+    fun confirmOtp(email: String) {
         viewModelScope.launch {
+            _isLoading.value = true
+            _errorMessage.value = null
             try {
-                // Hacemos lo mismo para la función verifyOtp
-                val response = RetrofitClient.apiService.verifyOtp(AuthRequest(email, otp))
-
+                val response = apiService.confirmOtp(OtpConfirmationRequest(email, _otp.value))
                 if (response.isSuccessful) {
-                    val otpResponse = response.body()
-                    if (otpResponse != null && otpResponse.message.contains("verificado exitosamente")) {
-                        _loginResult.value = LoginResult.OtpConfirmed
-                        _navigationEvents.send(NavigationEvent.NavigateToHome)
+                    val userResponse: UserResponse? = response.body()
+                    if (userResponse != null && userResponse.user != null) {
+                        SessionManager.userId = userResponse.user.id
+                        _isAuthenticated.value = true
                     } else {
-                        _loginResult.value = LoginResult.Error("Respuesta inesperada del servidor")
+                        _errorMessage.value = "Respuesta de autenticación nula o sin usuario."
                     }
                 } else {
-                    _loginResult.value = LoginResult.Error("Código incorrecto o expirado")
+                    _errorMessage.value = "Código OTP incorrecto."
                 }
+            } catch (e: IOException) {
+                _errorMessage.value = "Error de red: ${e.message}"
             } catch (e: Exception) {
-                _loginResult.value = LoginResult.Error("Código incorrecto o expirado")
+                _errorMessage.value = "Error inesperado: ${e.message}"
             } finally {
                 _isLoading.value = false
             }
         }
     }
 
-    fun resetState() {
-        _loginResult.value = LoginResult.Initial
+    companion object {
+        val Factory: ViewModelProvider.Factory = object : ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : ViewModel> create(modelClass: Class<T>, extras: CreationExtras): T {
+                val application = checkNotNull(extras[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY])
+                if (modelClass.isAssignableFrom(AuthViewModel::class.java)) {
+                    return AuthViewModel(
+                        (application as RitmoFitApplication).container.apiService
+                    ) as T
+                }
+                throw IllegalArgumentException("Unknown ViewModel class")
+            }
+        }
     }
 }

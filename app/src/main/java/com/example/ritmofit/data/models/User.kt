@@ -1,12 +1,12 @@
+// Archivo: app/src/main/java/com/example/ritmofit/data/models/User.kt
 package com.example.ritmofit.data.models
 
-import com.google.gson.annotations.SerializedName
+import kotlinx.serialization.Serializable
 
+@Serializable
 data class User(
-    @SerializedName("_id")
     val id: String,
-    @SerializedName("username")
-    val username: String,
-    @SerializedName("email")
-    val email: String
+    val name: String,
+    val email: String,
+    val profilePhotoUrl: String? = null
 )

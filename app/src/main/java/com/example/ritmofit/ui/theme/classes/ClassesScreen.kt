@@ -1,88 +1,80 @@
-// Archivo: ClassesScreen.kt
+// Archivo: ClassesScreen.kt (Versión Final)
 package com.example.ritmofit.ui.theme.classes
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.ritmofit.data.models.GymClass
-import com.example.ritmofit.data.models.Location
-import com.example.ritmofit.data.models.Schedule
+import com.example.ritmofit.home.GymClassCard
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ClassesScreen(
+    onNavigateBack: () -> Unit,
     onClassClick: (GymClass) -> Unit,
     classesViewModel: ClassesViewModel = viewModel()
 ) {
-    val classes by classesViewModel.classes.collectAsState()
+    // Observar el estado de las clases desde el ClassesViewModel
+    val classesState by classesViewModel.classesState.collectAsState()
 
-    if (classes.isEmpty()) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            CircularProgressIndicator()
+    // Llamar a la función para cargar las clases cuando el Composable se inicie
+    LaunchedEffect(Unit) {
+        classesViewModel.fetchClasses()
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Clases Disponibles") },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Volver")
+                    }
+                }
+            )
         }
-    } else {
-        LazyColumn(
+    ) { paddingValues ->
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .padding(paddingValues),
+            contentAlignment = Alignment.Center
         ) {
-            items(classes) { gymClass ->
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onClassClick(gymClass) },
-                    elevation = CardDefaults.cardElevation(4.dp)
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp)
-                    ) {
-                        Text(text = gymClass.name, style = MaterialTheme.typography.titleLarge)
-                        Text(text = "Horario: ${gymClass.schedule.startTime}")
-                        Text(text = "Profesor: ${gymClass.instructor}")
+            when (val state = classesState) {
+                is ClassesViewModel.ClassesUiState.Loading -> {
+                    CircularProgressIndicator()
+                }
+                is ClassesViewModel.ClassesUiState.Success -> {
+                    if (state.classes.isEmpty()) {
+                        Text(text = "No hay clases disponibles.")
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            items(state.classes) { gymClass ->
+                                GymClassCard(
+                                    gymClass = gymClass,
+                                    onClassClick = { onClassClick(gymClass) }
+                                )
+                            }
+                        }
                     }
+                }
+                is ClassesViewModel.ClassesUiState.Error -> {
+                    Text(text = "Error: ${state.message}")
                 }
             }
         }
     }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun ClassesScreenPreview() {
-    val mockClasses = listOf(
-        GymClass(
-            id = "clase1",
-            name = "Yoga Matutino",
-            description = "Clase de yoga para empezar el día con energía.",
-            schedule = Schedule(id = "sch1", startTime = "09:00", endTime = "10:00", day = "Lunes", gymClassId = "clase1"),
-            duration = 60,
-            instructor = "Laura",
-            location = Location(id = "loc1", name = "Salón de Yoga"),
-            difficulty = "Baja",
-            availableSpots = 5,
-            imageUrl = "https://example.com/yoga.jpg",
-            maxCapacity = 15
-        )
-    )
-    ClassesScreen(
-        onClassClick = {},
-        classesViewModel = ClassesViewModel()
-    )
 }

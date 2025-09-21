@@ -1,4 +1,4 @@
-// Archivo: ReservationsScreen.kt (Corregido)
+// Archivo: ReservationsScreen.kt
 package com.example.ritmofit.ui.theme.reservation
 
 import androidx.compose.foundation.clickable
@@ -7,19 +7,32 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.compose.material.icons.filled.Delete
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.ritmofit.data.models.GymClass
+import com.example.ritmofit.ui.theme.reservation.ReservationsViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReservationsScreen(
     onNavigateBack: () -> Unit,
-    onClassClick: (String) -> Unit, // El onClassClick ahora acepta un String (el ID de la clase)
-    reservationsViewModel: ReservationsViewModel
+    onClassClick: (GymClass) -> Unit,
+    reservationsViewModel: ReservationsViewModel = viewModel()
 ) {
+    val reservationsState by reservationsViewModel.reservationsState.collectAsState()
+
+    LaunchedEffect(Unit) {
+        reservationsViewModel.fetchUserReservations()
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -32,49 +45,57 @@ fun ReservationsScreen(
             )
         }
     ) { paddingValues ->
-        if (reservationsViewModel.reservations.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues),
-                contentAlignment = androidx.compose.ui.Alignment.Center
-            ) {
-                Text("No tienes reservas activas.")
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(reservationsViewModel.reservations) { reservation ->
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth(),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-                    ) {
-                        Row(
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues),
+            contentAlignment = Alignment.Center
+        ) {
+            when (val state = reservationsState) {
+                is ReservationsViewModel.ReservationsUiState.Loading -> {
+                    CircularProgressIndicator()
+                }
+                is ReservationsViewModel.ReservationsUiState.Success -> {
+                    if (state.reservations.isEmpty()) {
+                        Text(text = "No tienes reservas activas.")
+                    } else {
+                        LazyColumn(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onClassClick(reservation.gymClass.id) } // Pasamos el ID de la clase
+                                .fillMaxSize()
                                 .padding(16.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            Column {
-                                Text(reservation.gymClass.name, style = MaterialTheme.typography.titleMedium)
-                                Text("Estado: ${reservation.status.displayName}")
-                                Text("Horario: ${reservation.gymClass.schedule.startTime}")
-                            }
-                            IconButton(
-                                onClick = { reservationsViewModel.cancelReservation(reservation.id) },
-                                modifier = Modifier.size(24.dp)
-                            ) {
-                                Icon(Icons.Default.Delete, contentDescription = "Cancelar reserva", tint = MaterialTheme.colorScheme.error)
+                            items(state.reservations) { reservation ->
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable { onClassClick(reservation.gymClass) }
+                                            .padding(16.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column {
+                                            Text(reservation.gymClass.className, style = MaterialTheme.typography.titleMedium)
+                                            Text("Estado: ${reservation.status.displayName}")
+                                            Text("Horario: ${reservation.gymClass.schedule.startTime}")
+                                        }
+                                        IconButton(
+                                            onClick = { reservationsViewModel.cancelReservation(reservation.id) }
+                                        ) {
+                                            Icon(Icons.Default.Delete, contentDescription = "Cancelar reserva", tint = MaterialTheme.colorScheme.error)
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
+                }
+                is ReservationsViewModel.ReservationsUiState.Error -> {
+                    Text(text = "Error: ${state.message}")
                 }
             }
         }

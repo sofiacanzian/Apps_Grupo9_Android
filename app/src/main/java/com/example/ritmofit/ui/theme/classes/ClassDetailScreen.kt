@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.ritmofit.data.models.GymClass
 import com.example.ritmofit.ui.theme.reservation.ReservationsViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -22,10 +23,11 @@ fun ClassDetailScreen(
     classId: String,
     onNavigateBack: () -> Unit,
     onReservationSuccess: () -> Unit,
-    classDetailViewModel: ClassDetailViewModel = viewModel()
+    classDetailViewModel: ClassDetailViewModel = viewModel(),
+    reservationsViewModel: ReservationsViewModel = viewModel()
 ) {
-    val reservationsViewModel: ReservationsViewModel = viewModel()
     val gymClass by classDetailViewModel.classState.collectAsState()
+    val isBooking by reservationsViewModel.isBooking.collectAsState()
 
     LaunchedEffect(key1 = classId) {
         classDetailViewModel.fetchClassDetails(classId)
@@ -34,7 +36,7 @@ fun ClassDetailScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(gymClass?.name ?: "Detalle de Clase") },
+                title = { Text(gymClass?.className ?: "Detalle de Clase") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Volver")
@@ -60,7 +62,7 @@ fun ClassDetailScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Text(
-                    text = gymClass!!.name,
+                    text = gymClass!!.className,
                     style = MaterialTheme.typography.headlineLarge,
                     fontWeight = FontWeight.Bold
                 )
@@ -82,13 +84,13 @@ fun ClassDetailScreen(
                 Spacer(modifier = Modifier.height(16.dp))
                 Button(
                     onClick = {
-                        reservationsViewModel.createReservation(gymClass!!)
+                        reservationsViewModel.createReservation(gymClass!!.id)
                         onReservationSuccess()
                     },
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = !reservationsViewModel.isBooking
+                    enabled = !isBooking
                 ) {
-                    Text(if (reservationsViewModel.isBooking) "Reservando..." else "Reservar un cupo")
+                    Text(if (isBooking) "Reservando..." else "Reservar un cupo")
                 }
             }
         }
