@@ -1,4 +1,3 @@
-// Archivo: ProfileScreen.kt
 package com.example.ritmofit.profile
 
 import androidx.compose.foundation.Image
@@ -54,7 +53,9 @@ fun ProfileScreen(
         }
         is ProfileViewModel.ProfileUiState.Success -> {
             val user = (uiState as ProfileViewModel.ProfileUiState.Success).user
-            var name by remember { mutableStateOf(user.name) }
+            var name by remember { mutableStateOf(user.name ?: "") }
+            var lastName by remember { mutableStateOf(user.lastName ?: "") }
+            var memberId by remember { mutableStateOf(user.memberId ?: "") }
             var email by remember { mutableStateOf(user.email) }
 
             Column(
@@ -84,10 +85,30 @@ fun ProfileScreen(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 OutlinedTextField(
+                    value = lastName,
+                    onValueChange = { lastName = it },
+                    label = { Text("Apellido") },
+                    readOnly = !isEditing,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                OutlinedTextField(
                     value = email,
                     onValueChange = { /* El email no se edita */ },
                     label = { Text("Email") },
                     readOnly = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                OutlinedTextField(
+                    value = memberId,
+                    onValueChange = { memberId = it },
+                    label = { Text("Número de Socio") },
+                    readOnly = true, // El número de socio no debería ser editable
                     modifier = Modifier.fillMaxWidth()
                 )
 
@@ -96,7 +117,8 @@ fun ProfileScreen(
                 if (isEditing) {
                     Button(
                         onClick = {
-                            profileViewModel.updateUserProfile(user.id, User(user.id, name, email, user.profilePhotoUrl))
+                            val updatedUser = user.copy(name = name, lastName = lastName)
+                            profileViewModel.updateUserProfile(updatedUser.id, updatedUser)
                             isEditing = false
                         },
                         modifier = Modifier.fillMaxWidth()

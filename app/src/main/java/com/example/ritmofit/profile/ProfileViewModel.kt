@@ -17,7 +17,6 @@ import java.lang.Exception
 class ProfileViewModel(
     private val apiService: ApiService
 ) : ViewModel() {
-    // ... (El resto de tu código de ViewModel)
     sealed class ProfileUiState {
         object Loading : ProfileUiState()
         data class Success(val user: User) : ProfileUiState()
