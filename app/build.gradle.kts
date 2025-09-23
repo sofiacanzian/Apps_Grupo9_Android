@@ -1,3 +1,5 @@
+val compose_version = "1.5.4" // Use the version compatible with your project
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -66,7 +68,7 @@ dependencies {
 
     // Dependencia de Kotlinx Serialization
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.5.1")
-
+    implementation("androidx.compose.material:material-icons-extended:${compose_version}")
     // Dependencias de Compose
     implementation("androidx.compose.foundation:foundation:1.5.4")
     implementation(platform("androidx.compose:compose-bom:2024.06.00"))
