@@ -1,4 +1,3 @@
-//archivo: apiservice.kt
 package com.example.ritmofit.network
 
 import com.example.ritmofit.data.models.AuthRequest
@@ -13,6 +12,7 @@ import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.PUT
 import retrofit2.http.Path
+import retrofit2.http.Query
 
 interface ApiService {
 
@@ -23,8 +23,17 @@ interface ApiService {
     @POST("api/auth/confirm-otp")
     suspend fun confirmOtp(@Body otpRequest: OtpConfirmationRequest): Response<UserResponse>
 
+    // Ruta para obtener clases con filtros (modificada)
     @GET("api/classes")
-    suspend fun getClasses(): Response<List<GymClass>>
+    suspend fun getClasses(
+        @Query("location") location: String? = null,
+        @Query("discipline") discipline: String? = null,
+        @Query("date") date: String? = null
+    ): Response<List<GymClass>>
+
+    // Nueva ruta para obtener filtros disponibles
+    @GET("api/filters")
+    suspend fun getFilters(): Response<FilterResponse>
 
     @GET("api/reservations/{userId}")
     suspend fun getUserReservations(@Path("userId") userId: String): Response<List<Reservation>>

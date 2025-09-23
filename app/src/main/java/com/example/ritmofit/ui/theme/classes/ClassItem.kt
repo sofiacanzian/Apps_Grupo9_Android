@@ -30,7 +30,7 @@ fun ClassItem(
             modifier = Modifier.padding(16.dp)
         ) {
             Text(
-                text = gymClass.className,
+                text = gymClass.name,
                 style = MaterialTheme.typography.titleMedium
             )
             Text(

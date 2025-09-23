@@ -1,21 +1,14 @@
-// Archivo: Reservation.kt
+// Archivo: app/src/main/java/com/example/ritmofit/data/models/Reservation.kt
 package com.example.ritmofit.data.models
 
-import com.google.gson.annotations.SerializedName
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerialName
 
+@Serializable
 data class Reservation(
-    @SerializedName("id")
-    val id: String,
-    @SerializedName("gymClass")
-    val gymClass: GymClass,
-    @SerializedName("status")
-    val status: ReservationStatus,
-    @SerializedName("timestamp")
-    val timestamp: String // o un tipo de dato de fecha más específico
+    @SerialName("_id") val id: String,
+    val userId: String,
+    val classId: GymClass, // Nombre del campo que devuelve el servidor
+    val reservationDate: String,
+    val status: String // Corregido: es un String
 )
-
-enum class ReservationStatus(val displayName: String) {
-    CONFIRMED("Confirmada"),
-    CANCELLED("Cancelada"),
-    EXPIRED("Expirada")
-}

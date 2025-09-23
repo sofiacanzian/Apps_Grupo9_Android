@@ -73,15 +73,15 @@ fun ReservationsScreen(
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .clickable { onClassClick(reservation.gymClass) }
+                                            .clickable { onClassClick(reservation.classId) }
                                             .padding(16.dp),
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Column {
-                                            Text(reservation.gymClass.className, style = MaterialTheme.typography.titleMedium)
-                                            Text("Estado: ${reservation.status.displayName}")
-                                            Text("Horario: ${reservation.gymClass.schedule.startTime}")
+                                            Text(reservation.classId.name, style = MaterialTheme.typography.titleMedium)
+                                            Text("Estado: ${reservation.status}")
+                                            Text("Horario: ${reservation.classId.schedule.startTime}")
                                         }
                                         IconButton(
                                             onClick = { reservationsViewModel.cancelReservation(reservation.id) }

@@ -36,7 +36,7 @@ fun ClassDetailScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(gymClass?.className ?: "Detalle de Clase") },
+                title = { Text(gymClass?.name ?: "Detalle de Clase") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Volver")
@@ -62,7 +62,7 @@ fun ClassDetailScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Text(
-                    text = gymClass!!.className,
+                    text = gymClass!!.name,
                     style = MaterialTheme.typography.headlineLarge,
                     fontWeight = FontWeight.Bold
                 )

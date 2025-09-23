@@ -5,7 +5,5 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class Location(
-    val id: String,
-    val name: String,
-    val address: String
+    val name: String
 )

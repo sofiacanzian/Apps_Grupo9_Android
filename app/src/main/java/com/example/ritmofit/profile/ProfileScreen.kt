@@ -1,6 +1,6 @@
-//archivo: profilescreen.kt
 package com.example.ritmofit.profile
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -17,6 +17,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -25,15 +26,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.rememberAsyncImagePainter
+import com.example.ritmofit.R
 import com.example.ritmofit.data.models.SessionManager
 import com.example.ritmofit.data.models.User
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.foundation.Image
-import androidx.compose.ui.res.painterResource
-import com.example.ritmofit.R
 import java.text.SimpleDateFormat
 import java.util.Locale
 
@@ -62,7 +61,7 @@ fun ProfileScreen(
             var name by remember { mutableStateOf(user.name ?: "") }
             var lastName by remember { mutableStateOf(user.lastName ?: "") }
             var memberId by remember { mutableStateOf(user.memberId ?: "") }
-            var email by remember { mutableStateOf(user.email) }
+            var email by remember { mutableStateOf(user.email ?: "") } // Manejo de nulos aquí
             val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
             var birthDate by remember {
                 mutableStateOf(user.birthDate?.let { dateFormat.format(it) } ?: "")

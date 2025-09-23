@@ -1,4 +1,4 @@
-// Archivo: HistoryScreen.kt (Corregido)
+// Archivo: HistoryScreen.kt
 package com.example.ritmofit.ui.theme.history
 
 import androidx.compose.foundation.layout.*
@@ -62,8 +62,8 @@ fun HistoryScreen(
                         LazyColumn {
                             items(state.reservations) { reservation ->
                                 GymClassCard(
-                                    gymClass = reservation.gymClass,
-                                    onClassClick = { onClassClick(reservation.gymClass) }
+                                    gymClass = reservation.classId,
+                                    onClassClick = { onClassClick(reservation.classId) }
                                 )
                             }
                         }

@@ -2,17 +2,17 @@
 package com.example.ritmofit.data.models
 
 import kotlinx.serialization.Serializable
-import java.util.Date // Asegúrate de importar esto
-import kotlinx.serialization.Contextual // IMPORTA ESTO
+import java.util.Date
+import kotlinx.serialization.Contextual
 
 @Serializable
 data class User(
     val id: String,
     val name: String? = null,
-    val email: String,
+    val email: String?, // <-- ¡CORREGIDO! Ahora puede ser nulo
     val lastName: String? = null,
     val memberId: String? = null,
-    @Contextual // Añade esta anotación
+    @Contextual
     val birthDate: Date? = null,
     val profilePhotoUrl: String? = null
 )

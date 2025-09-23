@@ -1,6 +1,8 @@
-// Archivo: HomeViewModel.kt
 package com.example.ritmofit.home
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -8,23 +10,35 @@ import androidx.lifecycle.viewmodel.CreationExtras
 import com.example.ritmofit.RitmoFitApplication
 import com.example.ritmofit.data.models.GymClass
 import com.example.ritmofit.data.models.Reservation
-import com.example.ritmofit.network.ApiService
 import com.example.ritmofit.data.models.SessionManager
+import com.example.ritmofit.network.ApiService
+import com.example.ritmofit.network.FilterResponse
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.io.IOException
+import java.text.SimpleDateFormat
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.util.Date
+import java.util.Locale
 
 class HomeViewModel(
     private val apiService: ApiService
 ) : ViewModel() {
-    // ... (El resto de tu código de ViewModel)
     private val _classesState = MutableStateFlow<ClassesUiState>(ClassesUiState.Loading)
     val classesState: StateFlow<ClassesUiState> = _classesState.asStateFlow()
 
     private val _reservationState = MutableStateFlow<ReservationUiState>(ReservationUiState.Idle)
     val reservationState: StateFlow<ReservationUiState> = _reservationState.asStateFlow()
+
+    var selectedLocation by mutableStateOf<String?>(null)
+    var selectedDiscipline by mutableStateOf<String?>(null)
+    var selectedDate by mutableStateOf<Date?>(null)
+
+    private val _filtersState = MutableStateFlow<FilterUiState>(FilterUiState.Loading)
+    val filtersState: StateFlow<FilterUiState> = _filtersState.asStateFlow()
 
     sealed class ClassesUiState {
         object Loading : ClassesUiState()
@@ -39,11 +53,28 @@ class HomeViewModel(
         data class Error(val message: String) : ReservationUiState()
     }
 
+    sealed class FilterUiState {
+        object Loading : FilterUiState()
+        data class Success(val filters: FilterResponse) : FilterUiState()
+        data class Error(val message: String) : FilterUiState()
+    }
+
     fun fetchClasses() {
         viewModelScope.launch {
             _classesState.value = ClassesUiState.Loading
             try {
-                val response = apiService.getClasses()
+                // Formato de la fecha para el backend
+                val formattedDate = selectedDate?.let {
+                    val formatter = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+                    formatter.format(it)
+                }
+
+                val response = apiService.getClasses(
+                    location = selectedLocation,
+                    discipline = selectedDiscipline,
+                    date = formattedDate
+                )
+
                 if (response.isSuccessful) {
                     val classes = response.body() ?: emptyList()
                     _classesState.value = ClassesUiState.Success(classes)
@@ -58,13 +89,32 @@ class HomeViewModel(
         }
     }
 
+    fun fetchFilters() {
+        viewModelScope.launch {
+            _filtersState.value = FilterUiState.Loading
+            try {
+                val response = apiService.getFilters()
+                if (response.isSuccessful) {
+                    val filters = response.body() ?: FilterResponse(emptyList(), emptyList())
+                    _filtersState.value = FilterUiState.Success(filters)
+                } else {
+                    _filtersState.value = FilterUiState.Error("Error al cargar los filtros: ${response.code()}")
+                }
+            } catch (e: IOException) {
+                _filtersState.value = FilterUiState.Error("Error de red. Verifique su conexión.")
+            } catch (e: Exception) {
+                _filtersState.value = FilterUiState.Error("Error inesperado: ${e.message}")
+            }
+        }
+    }
+
     fun createReservation(gymClass: GymClass) {
         viewModelScope.launch {
             _reservationState.value = ReservationUiState.Loading
             try {
                 val userId = SessionManager.userId ?: throw IllegalStateException("User not authenticated.")
                 val response = apiService.createReservation(
-                    mapOf("userId" to userId, "gymClassId" to gymClass.id)
+                    mapOf("userId" to userId, "classId" to gymClass.id)
                 )
 
                 if (response.isSuccessful) {
