@@ -22,8 +22,9 @@ import java.util.Locale
 @Composable
 fun ClassDetailScreen(
     classId: String,
+    // El callback es importante para que la vista anterior se actualice
     onReservationSuccess: () -> Unit,
-    classDetailViewModel: ClassDetailViewModel = viewModel(),
+    classDetailViewModel: ClassDetailViewModel = viewModel(factory = ClassDetailViewModel.Factory), // Asegúrate de usar el factory aquí
     reservationsViewModel: ReservationsViewModel = viewModel(),
     paddingValues: PaddingValues
 ) {
@@ -34,24 +35,26 @@ fun ClassDetailScreen(
         classDetailViewModel.fetchClassDetails(classId)
     }
 
-    // Formateador de fecha
+    // CAMBIO CLAVE: Formato de fecha para detalle (dd/MM/yyyy)
     val dateFormatter = remember {
-        DateTimeFormatter.ofPattern("EEEE, dd/MM", Locale("es", "ES"))
+        // Usamos "dd/MM/yyyy" para el formato deseado
+        DateTimeFormatter.ofPattern("dd/MM/yyyy", Locale("es", "ES"))
     }
 
-    // Lógica para parsear la fecha real
+    // Lógica para parsear y formatear la fecha real
     val classDateText = remember(gymClass?.classDate) {
         val isoDate = gymClass?.classDate
         if (isoDate != null) {
             try {
-                // Parseamos el string YYYY-MM-DD y lo formateamos
+                // El backend devuelve YYYY-MM-DD. Parseamos y formateamos.
                 val date = LocalDate.parse(isoDate)
                 "Fecha: ${date.format(dateFormatter)}"
             } catch (e: Exception) {
-                null
+                // En caso de error de parseo, mostramos el día de la semana original como fallback
+                "Fecha: ${gymClass?.schedule?.day?.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() } ?: "N/D"}"
             }
         } else {
-            null
+            "Fecha: N/D"
         }
     }
 
@@ -88,26 +91,39 @@ fun ClassDetailScreen(
                     modifier = Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // --- CAMBIO CLAVE: MOSTRAR LA FECHA REAL ---
-                    if (classDateText != null) {
-                        Text(classDateText, fontWeight = FontWeight.SemiBold)
-                    }
-                    // ------------------------------------------
+                    // Muestra la fecha real calculada (dd/MM/yyyy)
+                    Text(classDateText, fontWeight = FontWeight.SemiBold)
+
                     Text("Horario: ${gymClass!!.schedule.startTime} - ${gymClass!!.schedule.endTime}")
                     Text("Ubicación: ${gymClass!!.location.name}")
+
+                    // Aseguramos que la capacidad refleje el estado actual de gymClass
                     Text("Cupos: ${gymClass!!.currentCapacity} / ${gymClass!!.maxCapacity}")
                 }
             }
             Spacer(modifier = Modifier.height(16.dp))
             Button(
                 onClick = {
+                    // 1. Crear la reserva
                     reservationsViewModel.createReservation(gymClass!!.id)
+
+                    // 2. 🚀 LLAMADA CORREGIDA: Usamos la función del ViewModel para actualizar el cupo.
+                    classDetailViewModel.incrementCapacity()
+
+                    // 3. Notificar éxito
                     onReservationSuccess()
                 },
                 modifier = Modifier.fillMaxWidth(),
-                enabled = !isBooking
+                // Se deshabilita si está reservando o no hay cupos
+                enabled = !isBooking && gymClass!!.currentCapacity < gymClass!!.maxCapacity
             ) {
-                Text(if (isBooking) "Reservando..." else "Reservar un cupo")
+                Text(
+                    when {
+                        isBooking -> "Reservando..."
+                        gymClass!!.currentCapacity >= gymClass!!.maxCapacity -> "Sin cupos disponibles"
+                        else -> "Reservar un cupo"
+                    }
+                )
             }
         }
     }

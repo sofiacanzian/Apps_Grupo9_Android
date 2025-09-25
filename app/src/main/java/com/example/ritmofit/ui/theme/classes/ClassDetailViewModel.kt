@@ -14,7 +14,7 @@ import kotlinx.coroutines.launch
 import java.io.IOException
 
 class ClassDetailViewModel(private val apiService: ApiService) : ViewModel() {
-    // ... (El resto de tu código de ViewModel)
+
     private val _classState = MutableStateFlow<GymClass?>(null)
     val classState: StateFlow<GymClass?> = _classState
 
@@ -35,6 +35,21 @@ class ClassDetailViewModel(private val apiService: ApiService) : ViewModel() {
             } catch (e: Exception) {
                 _errorMessage.value = "Error inesperado: ${e.message}"
             }
+        }
+    }
+
+    /**
+     * 🚀 NUEVO MÉTODO AÑADIDO: Incrementa el cupo localmente después de una reserva.
+     * Esto centraliza la lógica de modificación del estado.
+     */
+    fun incrementCapacity() {
+        val currentClass = _classState.value
+        if (currentClass != null) {
+            // Creamos una COPIA del objeto inmutable con la capacidad incrementada
+            val updatedClass = currentClass.copy(currentCapacity = currentClass.currentCapacity + 1)
+
+            // Asignamos la nueva COPIA al MutableStateFlow
+            _classState.value = updatedClass
         }
     }
 

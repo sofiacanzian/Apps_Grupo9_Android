@@ -21,9 +21,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.ritmofit.data.models.GymClass
-import com.example.ritmofit.home.GymClassCard // Asumo que esta es la ruta a tu GymClassCard original
-
-// --- CAMBIOS CLAVE AQUÍ: Reemplazar java.time por org.threeten.bp ---
+import com.example.ritmofit.data.models.Reservation
+// Importamos correctamente las clases de org.threeten.bp para compatibilidad
 import org.threeten.bp.Instant
 import org.threeten.bp.LocalDate
 import org.threeten.bp.ZoneId
@@ -42,11 +41,10 @@ fun HistoryScreen(
     val startDate by historyViewModel.startDate.collectAsState()
     val endDate by historyViewModel.endDate.collectAsState()
 
-    // Estados para controlar el DatePicker
     var showDatePicker by remember { mutableStateOf(false) }
-    var pickingStartDate by remember { mutableStateOf(true) } // true: inicio, false: fin
+    var pickingStartDate by remember { mutableStateOf(true) }
 
-    // Formato para mostrar la fecha (Usa org.threeten.bp.format.DateTimeFormatter)
+    // Usamos el formatter de org.threeten.bp
     val dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy", Locale.getDefault())
 
     LaunchedEffect(key1 = Unit) {
@@ -68,7 +66,7 @@ fun HistoryScreen(
         ) {
             // Campo de Fecha de Inicio
             OutlinedTextField(
-                // Usa org.threeten.bp.LocalDate.format
+                // Usamos org.threeten.bp.LocalDate.format
                 value = startDate?.format(dateFormatter) ?: "Fecha Inicio",
                 onValueChange = {},
                 readOnly = true,
@@ -86,7 +84,7 @@ fun HistoryScreen(
 
             // Campo de Fecha de Fin
             OutlinedTextField(
-                // Usa org.threeten.bp.LocalDate.format
+                // Usamos org.threeten.bp.LocalDate.format
                 value = endDate?.format(dateFormatter) ?: "Fecha Fin",
                 onValueChange = {},
                 readOnly = true,
@@ -129,8 +127,8 @@ fun HistoryScreen(
 
         // --- Diálogo de Selección de Fecha (DatePickerDialog) ---
         if (showDatePicker) {
+            // Usamos org.threeten.bp.ZoneId.systemDefault() y org.threeten.bp.Instant
             val datePickerState = rememberDatePickerState(
-                // Usa org.threeten.bp.ZoneId.systemDefault() y org.threeten.bp.Instant
                 initialSelectedDateMillis = (if (pickingStartDate) startDate else endDate)?.atStartOfDay(ZoneId.systemDefault())?.toInstant()?.toEpochMilli()
             )
             DatePickerDialog(
@@ -140,7 +138,7 @@ fun HistoryScreen(
                         onClick = {
                             val selectedDateMillis = datePickerState.selectedDateMillis
                             if (selectedDateMillis != null) {
-                                // Usa org.threeten.bp.Instant y org.threeten.bp.ZoneId
+                                // Usamos org.threeten.bp.Instant y org.threeten.bp.ZoneId
                                 val selectedDate = Instant.ofEpochMilli(selectedDateMillis).atZone(ZoneId.systemDefault()).toLocalDate()
 
                                 if (pickingStartDate) {
@@ -174,7 +172,7 @@ fun HistoryScreen(
                         items(state.reservations) { reservation ->
                             // Usa el GymClass anidado en la reserva
                             HistoryItemCard(
-                                gymClass = reservation.classId,
+                                reservation = reservation, // Pasamos el objeto Reservation completo
                                 onClassClick = { onClassClick(reservation.classId) }
                             )
                         }
@@ -190,20 +188,25 @@ fun HistoryScreen(
 
 @Composable
 fun HistoryItemCard(
-    gymClass: GymClass,
-    onClassClick: (GymClass) -> Unit
+    reservation: Reservation,
+    onClassClick: () -> Unit
 ) {
+    val gymClass = reservation.classId
+
     // Formato de fecha para mostrar la fecha real de la clase (classDate)
     val dateFormatter = remember {
-        DateTimeFormatter.ofPattern("EEEE, dd/MM/yyyy", Locale("es", "ES"))
+        // CAMBIO CLAVE: Formato dd/MM/yyyy
+        DateTimeFormatter.ofPattern("dd/MM/yyyy", Locale("es", "ES"))
     }
 
-    // Lógica para parsear la fecha real de la clase
-    val classDateText = remember(gymClass.classDate) {
-        val isoDate = gymClass.classDate
+    // Lógica para parsear la fecha real de la clase (classDate del objeto Reservation)
+    val classDateText = remember(reservation.classDate) {
+        val isoDate = reservation.classDate // Esta fecha ya viene del esquema Reservation
         if (isoDate != null) {
             try {
-                val date = LocalDate.parse(isoDate)
+                // Parseamos el string de fecha (ej: "2025-09-26T10:00:00.000Z")
+                val instant = Instant.parse(isoDate)
+                val date = instant.atZone(ZoneId.systemDefault()).toLocalDate()
                 date.format(dateFormatter)
             } catch (e: Exception) {
                 "Fecha no disponible"
@@ -217,7 +220,7 @@ fun HistoryItemCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp)
-            .clickable { onClassClick(gymClass) },
+            .clickable { onClassClick() },
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant
         )
@@ -230,12 +233,11 @@ fun HistoryItemCard(
             )
             Spacer(modifier = Modifier.height(4.dp))
 
-            // --- CAMBIO CLAVE: MOSTRAR LA FECHA REAL DE LA RESERVA/CLASE ---
+            // Muestra la fecha real de la clase (dd/MM/yyyy)
             Text(
                 text = "Fecha: $classDateText",
                 style = MaterialTheme.typography.bodyMedium
             )
-            // -------------------------------------------------------------
 
             Text(
                 text = "Horario: ${gymClass.schedule.startTime} - ${gymClass.schedule.endTime}",
@@ -244,6 +246,17 @@ fun HistoryItemCard(
             Text(
                 text = "Ubicación: ${gymClass.location.name}",
                 style = MaterialTheme.typography.bodyMedium
+            )
+            // Indicador de estado para el historial
+            Text(
+                text = "Estado: ${reservation.status.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = when (reservation.status) {
+                    "attended" -> MaterialTheme.colorScheme.primary
+                    "cancelled" -> MaterialTheme.colorScheme.error
+                    "expired" -> MaterialTheme.colorScheme.secondary
+                    else -> MaterialTheme.colorScheme.onSurface
+                }
             )
         }
     }
