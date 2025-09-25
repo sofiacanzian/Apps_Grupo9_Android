@@ -160,22 +160,22 @@ fun RitmoFitNavigation() {
             composable("reservations") {
                 val reservationsViewModel: ReservationsViewModel = viewModel(factory = ReservationsViewModel.Factory)
                 ReservationsScreen(
-                    onNavigateBack = { navController.popBackStack() },
                     onClassClick = { gymClass ->
                         navController.navigate("classDetail/${gymClass.id}")
                     },
-                    reservationsViewModel = reservationsViewModel
+                    reservationsViewModel = reservationsViewModel,
+                    paddingValues = innerPadding
                 )
             }
 
             composable("history") {
                 val historyViewModel: HistoryViewModel = viewModel(factory = HistoryViewModel.Factory)
                 HistoryScreen(
-                    onNavigateBack = { navController.popBackStack() },
                     onClassClick = { gymClass ->
                         navController.navigate("classDetail/${gymClass.id}")
                     },
-                    historyViewModel = historyViewModel
+                    historyViewModel = historyViewModel,
+                    paddingValues = innerPadding
                 )
             }
 
@@ -185,10 +185,10 @@ fun RitmoFitNavigation() {
                 val classId = backStackEntry.arguments?.getString("classId") ?: ""
                 ClassDetailScreen(
                     classId = classId,
-                    onNavigateBack = { navController.popBackStack() },
-                    onReservationSuccess = { navController.popBackStack() },
+                    onReservationSuccess = { navController.popBackStack() }, // <-- onNavigateBack fue eliminado
                     classDetailViewModel = classDetailViewModel,
-                    reservationsViewModel = reservationsViewModel
+                    reservationsViewModel = reservationsViewModel,
+                    paddingValues = innerPadding
                 )
             }
 

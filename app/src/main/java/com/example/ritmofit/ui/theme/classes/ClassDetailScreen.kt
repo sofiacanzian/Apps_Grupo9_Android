@@ -1,9 +1,7 @@
-// Archivo: ClassDetailScreen.kt (Corregido)
+// Archivo: ClassDetailScreen.kt
 package com.example.ritmofit.ui.theme.classes
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -17,14 +15,13 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.ritmofit.data.models.GymClass
 import com.example.ritmofit.ui.theme.reservation.ReservationsViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ClassDetailScreen(
     classId: String,
-    onNavigateBack: () -> Unit,
     onReservationSuccess: () -> Unit,
     classDetailViewModel: ClassDetailViewModel = viewModel(),
-    reservationsViewModel: ReservationsViewModel = viewModel()
+    reservationsViewModel: ReservationsViewModel = viewModel(),
+    paddingValues: PaddingValues // <-- Parámetro agregado
 ) {
     val gymClass by classDetailViewModel.classState.collectAsState()
     val isBooking by reservationsViewModel.isBooking.collectAsState()
@@ -33,65 +30,52 @@ fun ClassDetailScreen(
         classDetailViewModel.fetchClassDetails(classId)
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(gymClass?.name ?: "Detalle de Clase") },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Volver")
-                    }
-                }
-            )
+    if (gymClass == null) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator()
         }
-    ) { paddingValues ->
-        if (gymClass == null) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator()
-            }
-        } else {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
-                    .padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                Text(
-                    text = gymClass!!.name,
-                    style = MaterialTheme.typography.headlineLarge,
-                    fontWeight = FontWeight.Bold
+    } else {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues) // <-- Se aplica el padding aquí
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text(
+                text = gymClass!!.name,
+                style = MaterialTheme.typography.headlineLarge,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
                 )
-                Spacer(modifier = Modifier.height(8.dp))
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant
-                    )
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text("Horario: ${gymClass!!.schedule.startTime}")
-                        Text("Ubicación: ${gymClass!!.location.name}")
-                    }
+                    Text("Horario: ${gymClass!!.schedule.startTime}")
+                    Text("Ubicación: ${gymClass!!.location.name}")
                 }
-                Spacer(modifier = Modifier.height(16.dp))
-                Button(
-                    onClick = {
-                        reservationsViewModel.createReservation(gymClass!!.id)
-                        onReservationSuccess()
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = !isBooking
-                ) {
-                    Text(if (isBooking) "Reservando..." else "Reservar un cupo")
-                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(
+                onClick = {
+                    reservationsViewModel.createReservation(gymClass!!.id)
+                    onReservationSuccess()
+                },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !isBooking
+            ) {
+                Text(if (isBooking) "Reservando..." else "Reservar un cupo")
             }
         }
     }

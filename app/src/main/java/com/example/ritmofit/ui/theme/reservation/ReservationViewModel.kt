@@ -61,6 +61,7 @@ class ReservationsViewModel(
                 )
 
                 if (response.isSuccessful) {
+                    // CORRECCIÓN: Volvemos a llamar a fetchUserReservations() para actualizar la lista de reservas
                     fetchUserReservations()
                 } else {
                     // Handle API error
