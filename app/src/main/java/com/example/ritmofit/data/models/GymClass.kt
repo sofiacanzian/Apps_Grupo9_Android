@@ -10,9 +10,11 @@ data class GymClass(
     val name: String,
     val description: String,
     val maxCapacity: Int,
-    val currentCapacity: Int, // <-- CORREGIDO: coincide con el servidor
+    val currentCapacity: Int,
     val schedule: Schedule,
     val location: Location,
-    val professor: String?, // <-- CORREGIDO: coincide con el servidor
-    val duration: Int?
+    val professor: String?,
+    val duration: Int?,
+    // Campo para la fecha real calculada (YYYY-MM-DD)
+    val classDate: String? = null
 )

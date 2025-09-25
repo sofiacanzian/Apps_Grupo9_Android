@@ -36,7 +36,10 @@ class ReservationsViewModel(
             _reservationsState.value = ReservationsUiState.Loading
             try {
                 val userId = SessionManager.userId ?: throw IllegalStateException("User not authenticated.")
-                val response = apiService.getUserReservations(userId)
+
+                // CORRECCIÓN: La función fue renombrada a 'getReservations' en ApiService.kt
+                val response = apiService.getReservations(userId)
+
                 if (response.isSuccessful) {
                     val reservations = response.body() ?: emptyList()
                     _reservationsState.value = ReservationsUiState.Success(reservations)
@@ -61,7 +64,7 @@ class ReservationsViewModel(
                 )
 
                 if (response.isSuccessful) {
-                    // CORRECCIÓN: Volvemos a llamar a fetchUserReservations() para actualizar la lista de reservas
+                    // Volvemos a llamar a fetchUserReservations() para actualizar la lista de reservas
                     fetchUserReservations()
                 } else {
                     // Handle API error

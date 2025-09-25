@@ -57,6 +57,8 @@ android {
 }
 
 dependencies {
+    implementation("com.jakewharton.threetenabp:threetenabp:1.4.6")
+
     implementation("com.google.code.gson:gson:2.10.1")
     implementation("io.coil-kt:coil-compose:2.4.0")
     implementation("com.squareup.retrofit2:converter-gson:2.9.0")
@@ -83,7 +85,7 @@ dependencies {
     // Dependencias de ViewModel para la arquitectura MVVM
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.3")
 
-    // Dependencias para las vistas de la Actividad Principal
+    // Dependencias para las vistas de la Actividad Principalz
     implementation("androidx.activity:activity-compose:1.9.0")
 
     // Retrofit y Kotlinx Serialization para red
