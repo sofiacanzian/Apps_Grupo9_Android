@@ -49,11 +49,37 @@ class AuthViewModel(
     }
 
     /**
-     * Agregamos un callback 'onSuccess' a confirmOtp para permitir
-     * la navegación específica (como pasar a ResetPassword) después de la verificación exitosa.
+     * 🔑 MODIFICADO: Mantiene confirmOtp solo para REGISTRO y RESET PASSWORD.
+     * Usa la ruta verify-reset-otp (que no inicia sesión) para ambos.
      */
     fun confirmOtp(email: String, nextAction: String, onSuccess: () -> Unit = {}) {
-        verifyOtp(email, _otp.value, nextAction, onSuccess)
+        viewModelScope.launch {
+            _isLoading.value = true
+            clearMessages()
+            try {
+                val request = OtpConfirmationRequest(email, _otp.value)
+
+                // Usamos la ruta de verificación (verify-reset-otp) para ambos flujos (Registro y Reset)
+                val response = apiService.verifyResetOtp(request)
+
+                if (response.isSuccessful) {
+                    if (nextAction == "RESET_PASSWORD") {
+                        _successMessage.value = "Código verificado. Procede a ingresar tu nueva contraseña."
+                    } else if (nextAction == "REGISTER") {
+                        _successMessage.value = "Registro verificado. Ahora puedes iniciar sesión."
+                    }
+                    onSuccess()
+                } else {
+                    _errorMessage.value = "Código OTP incorrecto o ha expirado. Por favor, inténtalo de nuevo."
+                }
+            } catch (e: IOException) {
+                _errorMessage.value = "Error de red: No se pudo conectar con el servidor."
+            } catch (e: Exception) {
+                _errorMessage.value = "Error inesperado durante la verificación: ${e.message}"
+            } finally {
+                _isLoading.value = false
+            }
+        }
     }
 
     fun clearMessages() {
@@ -88,70 +114,33 @@ class AuthViewModel(
         }
     }
 
-    fun loginAndSendOtp(email: String, password: String, onSuccess: () -> Unit) {
-        viewModelScope.launch {
-            _isLoading.value = true
-            clearMessages()
-            _otp.value = "" // Limpia el OTP
-            try {
-                val response = apiService.loginAndSendOtp(AuthRequest(email, password = password))
-                if (response.isSuccessful) {
-                    _successMessage.value = "Código de verificación enviado a $email"
-                    onSuccess()
-                } else {
-                    val errorBody = response.errorBody()?.string()
-                    _errorMessage.value = "Credenciales incorrectas o usuario no verificado."
-                }
-            } catch (e: Exception) {
-                _errorMessage.value = "Error de conexión: No se pudo conectar con el servidor."
-            } finally {
-                _isLoading.value = false
-            }
-        }
-    }
-
     /**
-     * ✅ Lógica corregida para el reseteo de contraseña:
-     * En el caso de "RESET_PASSWORD", solo verificamos la validez del OTP,
-     * pero NO llamamos a SessionManager.setSession() para evitar iniciar sesión
-     * y potencialmente invalidar el OTP para el paso final de reseteo.
+     * ✅ NUEVA FUNCIÓN: Login directo (sin OTP), reemplaza loginAndSendOtp
      */
-    private fun verifyOtp(email: String, otpCode: String, nextAction: String, onVerificationSuccess: () -> Unit) {
+    fun login(email: String, password: String) {
         viewModelScope.launch {
             _isLoading.value = true
             clearMessages()
             try {
-                val request = OtpConfirmationRequest(email, otpCode)
-                val response = apiService.verifyOtpAndLogin(request)
+                // 🔑 Llama directamente al nuevo endpoint /api/auth/login
+                val response = apiService.login(AuthRequest(email, password = password))
 
                 if (response.isSuccessful) {
                     val userResponse: UserResponse? = response.body()
 
-                    // Manejo del flujo
-                    if (nextAction == "RESET_PASSWORD") {
-                        // Flujo de reseteo: El OTP es válido. No guardamos sesión.
-                        _successMessage.value = "Código verificado. Procede a ingresar tu nueva contraseña."
-                        onVerificationSuccess() // Navega a ResetPasswordScreen
-
-                    } else if (userResponse?.token != null && userResponse.user.id.isNotEmpty()) {
-                        // Flujo normal de LOGIN/REGISTER: Guardamos sesión.
+                    if (userResponse?.token != null && userResponse.user.id.isNotEmpty()) {
+                        // Si es exitoso, guarda la sesión y avisa a la UI
                         SessionManager.setSession(userResponse.token, userResponse.user.id)
-                        _otp.value = ""
-                        _successMessage.value = when (nextAction) {
-                            "REGISTER" -> "Registro y sesión iniciada con éxito."
-                            "LOGIN" -> "Sesión iniciada con éxito."
-                            else -> "Verificación exitosa."
-                        }
+                        _successMessage.value = "Sesión iniciada con éxito."
                     } else {
                         _errorMessage.value = "Error: Respuesta incompleta o token/ID de usuario faltante."
                     }
                 } else {
-                    _errorMessage.value = "Código OTP incorrecto o ha expirado. Por favor, inténtalo de nuevo."
+                    val errorBody = response.errorBody()?.string()
+                    _errorMessage.value = "Credenciales incorrectas. Verifique email y contraseña."
                 }
-            } catch (e: IOException) {
-                _errorMessage.value = "Error de red: No se pudo conectar con el servidor."
             } catch (e: Exception) {
-                _errorMessage.value = "Error inesperado durante la verificación: ${e.message}"
+                _errorMessage.value = "Error de conexión: No se pudo conectar con el servidor."
             } finally {
                 _isLoading.value = false
             }

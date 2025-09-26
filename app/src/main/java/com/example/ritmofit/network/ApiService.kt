@@ -1,4 +1,3 @@
-// archivo: apiservice.kt (FINAL CORREGIDO)
 package com.example.ritmofit.network
 
 import com.example.ritmofit.data.models.AuthRequest
@@ -30,14 +29,18 @@ interface ApiService {
     @POST("api/auth/register-send-otp") // 1. Registro: Enviar datos y solicitar OTP
     suspend fun registerAndSendOtp(@Body request: RegistrationRequest): Response<Unit>
 
-    @POST("api/auth/login-send-otp") // 2. Login: Enviar credenciales y solicitar OTP
-    suspend fun loginAndSendOtp(@Body authRequest: AuthRequest): Response<Unit>
+    // ✅ CAMBIO: Login directo sin OTP. Usa la nueva ruta /api/auth/login.
+    @POST("api/auth/login")
+    suspend fun login(@Body authRequest: AuthRequest): Response<UserResponse>
 
-    @POST("api/auth/verify-otp-and-login") // 3. Verificar OTP (usado para registro/login/recuperación)
-    suspend fun verifyOtpAndLogin(@Body otpRequest: OtpConfirmationRequest): Response<UserResponse>
+    // ❌ ELIMINADA: La antigua función verifyOtpAndLogin.
 
     @POST("api/auth/request-password-reset") // 4. Solicitar OTP de Recuperación
     suspend fun requestPasswordResetOtp(@Body authRequest: AuthRequest): Response<Unit>
+
+    // 🔑 MANTENER: Verifica que el OTP de recuperación/registro sea válido sin iniciar sesión
+    @POST("api/auth/verify-reset-otp")
+    suspend fun verifyResetOtp(@Body otpRequest: OtpConfirmationRequest): Response<Unit>
 
     @POST("api/auth/reset-password") // 5. Restablecer contraseña con OTP
     suspend fun resetPassword(@Body request: PasswordResetRequest): Response<Unit>

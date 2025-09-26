@@ -56,13 +56,13 @@ fun LoginScreen(
             }
             when {
                 // Contraseña restablecida
-                msg.contains("Contraseña restablecida con éxito") -> {
-                    authState = AuthState.Login // Vuelve al login tras restablecer
+                msg.contains("Contraseña restablecida con éxito") || msg.contains("Registro verificado") -> {
+                    authState = AuthState.Login // Vuelve al login tras restablecer o verificar registro
                     authViewModel.clearMessages()
                 }
-                // Verificación de login/registro exitosa
-                msg.contains("Sesión iniciada con éxito") || msg.contains("Usuario registrado con éxito") -> {
-                    // La navegación ocurre automáticamente en Navigation.kt
+                // Login exitoso (Sesión iniciada con éxito)
+                msg.contains("Sesión iniciada con éxito") -> {
+                    // La navegación a la pantalla principal ocurre automáticamente si isAuthenticated cambia a true
                     authViewModel.clearMessages()
                 }
                 // Manejo de otros éxitos si es necesario
@@ -95,12 +95,12 @@ fun LoginScreen(
                         email = email, onEmailChange = { email = it },
                         password = password, onPasswordChange = { password = it },
                         isLoading = isLoading,
-                        buttonText = "Solicitar Acceso (Enviar OTP)",
+                        // ✅ CAMBIADO: Botón de Login directo
+                        buttonText = "Iniciar Sesión",
                         onSubmit = {
-                            authViewModel.loginAndSendOtp(email, password) {
-                                // El éxito de esta función solo lleva a la siguiente pantalla
-                                authState = AuthState.OtpVerification(email, "LOGIN")
-                            }
+                            // 🔑 CAMBIO CLAVE: Llama a la nueva función de login directo
+                            authViewModel.login(email, password)
+                            // La navegación ocurre reactivamente si el login es exitoso
                         }
                     ) {
                         TextButton(onClick = { authState = AuthState.Register }) {
@@ -121,7 +121,7 @@ fun LoginScreen(
                         onSubmit = {
                             if (password == confirmPassword) {
                                 authViewModel.registerAndSendOtp(email, password) {
-                                    // El éxito de esta función solo lleva a la siguiente pantalla
+                                    // El éxito de esta función lleva a la verificación de registro
                                     authState = AuthState.OtpVerification(email, "REGISTER")
                                 }
                             } else {
@@ -140,7 +140,7 @@ fun LoginScreen(
                         email = email, onEmailChange = { email = it },
                         isLoading = isLoading,
                         onSubmit = {
-                            // ✅ MODIFICACIÓN CLAVE: Después de solicitar el OTP, navega a la verificación.
+                            // Después de solicitar el OTP, navega a la verificación.
                             authViewModel.requestPasswordResetOtp(email) {
                                 authState = AuthState.OtpVerification(email, "RESET_PASSWORD")
                             }
@@ -166,22 +166,21 @@ fun LoginScreen(
                         },
                         isLoading = isLoading,
                         onSubmit = {
-                            // La lógica de verificación y guardado de token está en el ViewModel
+                            // Lógica de verificación. Solo se usa para REGISTER o RESET_PASSWORD
                             authViewModel.confirmOtp(state.email, state.nextAction) {
                                 // ✅ LÓGICA DE NAVEGACIÓN DESPUÉS DE LA VERIFICACIÓN DE OTP:
                                 if (state.nextAction == "RESET_PASSWORD") {
                                     // Si la verificación para RESET_PASSWORD es exitosa, pasa al formulario de cambio.
                                     authState = AuthState.ResetPassword(state.email)
                                 }
-                                // Para "LOGIN" y "REGISTER", el ViewModel manejará la sesión y el LaunchedEffect se encargará
-                                // de cualquier navegación fuera de esta pantalla.
+                                // Para "REGISTER", el LaunchedEffect se encargará de volver a AuthState.Login
                             }
                         },
                         onRequestNewOtp = {
                             when (state.nextAction) {
                                 "REGISTER" -> authViewModel.registerAndSendOtp(state.email, password) { /* Se queda en la misma pantalla */ }
-                                "LOGIN" -> authViewModel.loginAndSendOtp(state.email, password) { /* Se queda en la misma pantalla */ }
-                                // ✅ MODIFICACIÓN: Si es password reset, usamos la función de reset.
+                                // ❌ ELIMINADA la llamada a loginAndSendOtp
+                                // Si es password reset, usamos la función de reset.
                                 "RESET_PASSWORD" -> authViewModel.requestPasswordResetOtp(state.email) { /* Se queda en la misma pantalla */ }
                                 else -> authViewModel.requestPasswordResetOtp(state.email) { /* Se queda en la misma pantalla */ }
                             }
@@ -202,12 +201,12 @@ fun LoginScreen(
                         confirmPassword = confirmPassword, onConfirmPasswordChange = { confirmPassword = it },
                         isLoading = isLoading,
                         onSubmit = {
-                            // ✅ MODIFICACIÓN CLAVE: Obtenemos el OTP guardado
+                            // Obtenemos el OTP guardado
                             val currentOtp = authViewModel.otp.value
 
                             if (password == confirmPassword) {
                                 if (currentOtp.isNotBlank()) {
-                                    // ✅ MODIFICACIÓN CLAVE: Pasamos el OTP almacenado para la API
+                                    // Pasamos el OTP almacenado para la API
                                     authViewModel.resetPassword(state.email, password, currentOtp) {
                                         // El onPasswordResetSuccess del VM establece el mensaje de éxito
                                         // y este LaunchedEffect navegará a AuthState.Login
@@ -231,7 +230,7 @@ fun LoginScreen(
 }
 
 // ----------------------------------------------------
-// Componentes Composable Reutilizables (SIN CAMBIOS E INCLUIDOS)
+// Componentes Composable Reutilizables (SIN CAMBIOS)
 // ----------------------------------------------------
 
 @Composable
