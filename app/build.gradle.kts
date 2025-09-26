@@ -1,12 +1,9 @@
-// Archivo: build.gradle.kts(app)
+// Archivo: build.gradle.kts(app) MODIFICADO
 val compose_version = "1.5.4"
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
-
-    // CORRECCIÓN: Quitamos la versión explícita aquí para que tome la del archivo root (1.9.0)
-    // Esto es necesario ya que el plugin se declara en el archivo raíz.
     id("org.jetbrains.kotlin.plugin.serialization")
 }
 
@@ -61,7 +58,17 @@ android {
 
 dependencies {
     // Librerías ya existentes
-    implementation("com.jakewharton.threetenabp:threetenabp:1.4.6")
+    implementation("com.jakewharton.threetenabp:threetenabp:1.4.0")
+
+    // CAMBIO 1: Agregamos el CORE de DataStore, a veces necesario.
+    implementation("androidx.datastore:datastore-core:1.0.0")
+    implementation("androidx.datastore:datastore-preferences:1.0.0") // Ya estaba
+
+    // CAMBIO 2: Actualizamos Corrutinas a una versión más reciente (1.8.1) para asegurar compatibilidad.
+    val coroutinesVersion = "1.8.1"
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:$coroutinesVersion")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:$coroutinesVersion")
+
     implementation("com.google.code.gson:gson:2.10.1")
     implementation("io.coil-kt:coil-compose:2.4.0")
     implementation("com.squareup.retrofit2:converter-gson:2.9.0")

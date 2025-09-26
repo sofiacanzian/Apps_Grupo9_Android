@@ -1,4 +1,3 @@
-// Archivo: Navigation.kt (MODIFICADO Y FINAL)
 package com.example.ritmofit.utils
 
 import androidx.compose.runtime.Composable
@@ -59,9 +58,17 @@ fun RitmoFitNavigation() {
     val currentBackStack by navController.currentBackStackEntryAsState()
     val currentRoute = currentBackStack?.destination?.route
 
+    // Este LaunchedEffect observa el estado de autenticación de DataStore y navega al Home.
+    // Esto resuelve el error 401 que tenías en el Interceptor (ya resuelto) y asegura la navegación.
     LaunchedEffect(isUserAuthenticated) {
         if (isUserAuthenticated) {
             navController.navigate("home") {
+                // Limpia la pila para que el usuario no pueda volver a Login
+                popUpTo(0) { inclusive = true }
+            }
+        } else {
+            // Si la sesión se cierra (ej: logout), navegamos a login
+            navController.navigate("login") {
                 popUpTo(0) { inclusive = true }
             }
         }
@@ -95,13 +102,16 @@ fun RitmoFitNavigation() {
             )
         }
     ) { innerPadding ->
+        // Establecer la pantalla de inicio condicionalmente.
+        // Si isUserAuthenticated es verdadero, empezamos en "home", si no, en "login".
         NavHost(
             navController = navController,
             startDestination = if (isUserAuthenticated) "home" else "login",
             modifier = Modifier.padding(innerPadding)
         ) {
             composable("login") {
-                // LoginScreen ahora maneja todos los flujos de autenticación internamente
+                // CORRECCIÓN 1: Se elimina el parámetro onLoginSuccess ya que el AuthViewModel
+                // usa el LaunchedEffect de arriba para manejar la navegación reactivamente.
                 LoginScreen(
                     authViewModel = authViewModel
                 )
@@ -117,7 +127,7 @@ fun RitmoFitNavigation() {
                     onNavigateToQrScanner = { navController.navigate("qrscanner") },
                     onNavigateToHistory = { navController.navigate("history") },
                     onNavigateToClasses = { navController.navigate("classes") },
-                    onClassClick = { gymClass -> navController.navigate("classDetail/${gymClass.id}") },
+                    onClassClick = { gymClass -> navController.navigate("classDetail/${gymClass._id}") },
                     homeViewModel = homeViewModel
                 )
             }
@@ -127,7 +137,7 @@ fun RitmoFitNavigation() {
                 ClassesScreen(
                     onNavigateBack = { navController.popBackStack() },
                     onClassClick = { gymClass ->
-                        navController.navigate("classDetail/${gymClass.id}")
+                        navController.navigate("classDetail/${gymClass._id}")
                     },
                     classesViewModel = classesViewModel
                 )
@@ -137,11 +147,10 @@ fun RitmoFitNavigation() {
                 val profileViewModel: ProfileViewModel = viewModel(factory = ProfileViewModel.Factory)
                 ProfileScreen(
                     onNavigateBack = { navController.popBackStack() },
+                    // CORRECCIÓN 2: Llama a authViewModel.logout() para manejar el cierre de sesión.
+                    // El LaunchedEffect superior se encargará de navegar a "login".
                     onLogout = {
-                        SessionManager.userId = null
-                        navController.navigate("login") {
-                            popUpTo(0) { inclusive = true }
-                        }
+                        authViewModel.logout()
                     },
                     profileViewModel = profileViewModel
                 )
@@ -151,7 +160,7 @@ fun RitmoFitNavigation() {
                 val reservationsViewModel: ReservationsViewModel = viewModel(factory = ReservationsViewModel.Factory)
                 ReservationsScreen(
                     onClassClick = { gymClass ->
-                        navController.navigate("classDetail/${gymClass.id}")
+                        navController.navigate("classDetail/${gymClass._id}")
                     },
                     reservationsViewModel = reservationsViewModel,
                     paddingValues = innerPadding
@@ -162,7 +171,7 @@ fun RitmoFitNavigation() {
                 val historyViewModel: HistoryViewModel = viewModel(factory = HistoryViewModel.Factory)
                 HistoryScreen(
                     onClassClick = { gymClass ->
-                        navController.navigate("classDetail/${gymClass.id}")
+                        navController.navigate("classDetail/${gymClass._id}")
                     },
                     historyViewModel = historyViewModel,
                     paddingValues = innerPadding

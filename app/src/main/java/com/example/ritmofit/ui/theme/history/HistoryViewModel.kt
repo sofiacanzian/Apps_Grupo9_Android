@@ -1,4 +1,3 @@
-// Archivo: HistoryViewModel.kt
 package com.example.ritmofit.ui.theme.history
 
 import androidx.lifecycle.ViewModel
@@ -14,7 +13,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.io.IOException
-// CAMBIAR: Usar org.threeten.bp en lugar de java.time
 import org.threeten.bp.LocalDate
 import org.threeten.bp.format.DateTimeFormatter
 
@@ -46,7 +44,8 @@ class HistoryViewModel(
         viewModelScope.launch {
             _reservationsState.value = ReservationsUiState.Loading
             try {
-                val userId = SessionManager.userId ?: throw IllegalStateException("User not authenticated.")
+                // CORRECCIÓN CLAVE: Usar la función suspend getUserId()
+                val userId = SessionManager.getUserId() ?: throw IllegalStateException("User not authenticated.")
 
                 // Convertir LocalDate a String en formato ISO (YYYY-MM-DD)
                 // Usamos DateTimeFormatter de org.threeten.bp.format
@@ -70,7 +69,9 @@ class HistoryViewModel(
             } catch (e: IOException) {
                 _reservationsState.value = ReservationsUiState.Error("Error de red. Verifique su conexión.")
             } catch (e: Exception) {
-                _reservationsState.value = ReservationsUiState.Error("Error inesperado: ${e.message}")
+                // También manejamos el error de autenticación si getUserId devuelve nulo.
+                val errorMessage = if (e is IllegalStateException) "Error de autenticación: ${e.message}" else "Error inesperado: ${e.message}"
+                _reservationsState.value = ReservationsUiState.Error(errorMessage)
             }
         }
     }

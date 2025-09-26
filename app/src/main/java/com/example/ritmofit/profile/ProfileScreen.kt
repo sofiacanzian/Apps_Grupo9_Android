@@ -28,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.rememberAsyncImagePainter
 import com.example.ritmofit.R
@@ -43,14 +44,37 @@ fun ProfileScreen(
     onLogout: () -> Unit,
     profileViewModel: ProfileViewModel = viewModel()
 ) {
-    val userId = SessionManager.userId ?: return
+    // 1. Estado local para almacenar el userId una vez que se carga
+    var currentUserId by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(key1 = userId) {
-        profileViewModel.fetchUserProfile(userId)
+    // 2. Cargar el userId de forma asíncrona al iniciar la pantalla
+    LaunchedEffect(Unit) {
+        // CORRECCIÓN CLAVE: Obtener el ID de forma asíncrona
+        currentUserId = SessionManager.getUserId()
+    }
+
+    // 3. Ejecutar la carga del perfil una vez que el currentUserId está disponible
+    LaunchedEffect(currentUserId) {
+        val userId = currentUserId
+        if (userId != null) {
+            profileViewModel.fetchUserProfile(userId)
+        }
+        // Nota: Si userId es nulo aquí (usuario no autenticado), la UI simplemente no carga el perfil.
     }
 
     val uiState by profileViewModel.userProfileState.collectAsState()
     var isEditing by remember { mutableStateOf(false) }
+
+    // Muestra un mensaje si el usuario no está autenticado o si el ID aún se está cargando
+    if (currentUserId == null) {
+        Text(
+            text = "Acceso denegado. Usuario no autenticado.",
+            modifier = Modifier
+                .fillMaxSize()
+                .wrapContentSize(Alignment.Center)
+        )
+        return
+    }
 
     when (uiState) {
         is ProfileViewModel.ProfileUiState.Loading -> {
@@ -58,13 +82,16 @@ fun ProfileScreen(
         }
         is ProfileViewModel.ProfileUiState.Success -> {
             val user = (uiState as ProfileViewModel.ProfileUiState.Success).user
-            var name by remember { mutableStateOf(user.name ?: "") }
-            var lastName by remember { mutableStateOf(user.lastName ?: "") }
-            var memberId by remember { mutableStateOf(user.memberId ?: "") }
-            var email by remember { mutableStateOf(user.email ?: "") } // Manejo de nulos aquí
+            // Es importante que estas variables locales usen 'remember' y 'mutableStateOf'
+            // para que los campos de texto se puedan editar.
+            var name by remember(user.name) { mutableStateOf(user.name ?: "") }
+            var lastName by remember(user.lastName) { mutableStateOf(user.lastName ?: "") }
+            val memberId = remember { user.memberId ?: "" } // Este campo es readOnly, no necesita ser mutable
+            val email = remember { user.email ?: "" } // Este campo es readOnly, no necesita ser mutable
+
             val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
-            var birthDate by remember {
-                mutableStateOf(user.birthDate?.let { dateFormat.format(it) } ?: "")
+            val birthDate = remember {
+                user.birthDate?.let { dateFormat.format(it) } ?: ""
             }
 
             Column(
@@ -148,7 +175,8 @@ fun ProfileScreen(
                                 name = name,
                                 lastName = lastName
                             )
-                            profileViewModel.updateUserProfile(updatedUser.id, updatedUser)
+                            // Usamos el ID cargado previamente
+                            profileViewModel.updateUserProfile(currentUserId!!, updatedUser)
                             isEditing = false
                         },
                         modifier = Modifier.fillMaxWidth()

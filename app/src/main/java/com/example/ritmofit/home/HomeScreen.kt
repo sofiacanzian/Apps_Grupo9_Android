@@ -22,9 +22,15 @@ import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.ui.text.font.FontWeight
+// ⚠️ Nota: Asegúrate de que estas dependencias de fecha estén en tu build.gradle
 import org.threeten.bp.LocalDate
 import org.threeten.bp.format.DateTimeFormatter
 import java.util.Locale
+
+// ⚠️ NOTA IMPORTANTE: Debes tener definido HomeViewModel en tu proyecto.
+// Esto es solo un placeholder para que compile:
+// interface HomeViewModel : ViewModel { ... }
+// O usar tu GymClassesViewModel en su lugar y renombrar la instancia.
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -35,13 +41,15 @@ fun HomeScreen(
     onNavigateToHistory: () -> Unit,
     onNavigateToClasses: () -> Unit,
     onClassClick: (GymClass) -> Unit,
-    // Nota: Debes tener una factoría definida en tu HomeViewModel
+    // ⚠️ Se asume que tienes un HomeViewModel.Factory definido
     homeViewModel: HomeViewModel = viewModel()
 ) {
     val classesState by homeViewModel.classesState.collectAsState()
     val filtersState by homeViewModel.filtersState.collectAsState()
 
+    // 💡 Ejecutar la carga de datos una sola vez
     LaunchedEffect(Unit) {
+        // Asumiendo que estas funciones existen en tu HomeViewModel
         homeViewModel.fetchFilters()
         homeViewModel.fetchClasses()
     }
@@ -49,7 +57,7 @@ fun HomeScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Clases Disponibles") }
+                title = { Text("RitmoFit") }
             )
         },
         bottomBar = {
@@ -95,13 +103,13 @@ fun HomeScreen(
             // Sección de filtros (descomentar cuando esté implementada)
             // FilterSection(homeViewModel, filtersState)
 
-            // Contenido principal (lista de clases o estado de carga/error)
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(16.dp),
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
                 contentAlignment = Alignment.Center
             ) {
+                // ⚠️ Se asume que HomeViewModel.ClassesUiState es una sealed class con Loading, Success, Error
                 when (val state = classesState) {
                     is HomeViewModel.ClassesUiState.Loading -> {
                         CircularProgressIndicator()
@@ -122,7 +130,7 @@ fun HomeScreen(
                         }
                     }
                     is HomeViewModel.ClassesUiState.Error -> {
-                        Text(text = "Error: ${state.message}")
+                        Text(text = "Error: ${state.message}", color = MaterialTheme.colorScheme.error)
                     }
                     else -> { /* Estado inicial/vacío */ }
                 }
@@ -131,7 +139,7 @@ fun HomeScreen(
     }
 }
 
-// Componente para la lista de clases en Home (similar al de ClassesScreen)
+// Componente para la lista de clases en Home (unificado)
 @Composable
 fun GymClassItemHome(gymClass: GymClass, onClassClick: (GymClass) -> Unit) {
 
@@ -139,11 +147,11 @@ fun GymClassItemHome(gymClass: GymClass, onClassClick: (GymClass) -> Unit) {
         DateTimeFormatter.ofPattern("dd/MM/yyyy", Locale.getDefault())
     }
 
-    // Lógica robusta para mostrar la fecha real o el día de la semana
-    val classDateFormatted = remember(gymClass.classDate) {
+    val classDateFormatted = remember(gymClass.classDate, gymClass.schedule.day) {
         val isoDate = gymClass.classDate
         if (isoDate != null) {
             try {
+                // Asume que gymClass.classDate es una fecha ISO (YYYY-MM-DD)
                 val date = LocalDate.parse(isoDate)
                 date.format(dateFormatter)
             } catch (e: Exception) {
@@ -162,8 +170,8 @@ fun GymClassItemHome(gymClass: GymClass, onClassClick: (GymClass) -> Unit) {
             .clickable { onClassClick(gymClass) }
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            // Usamos 'discipline' si está disponible, si no, usamos 'name' (aunque el backend ya igualó discipline=name)
-            val className = gymClass.discipline ?: gymClass.name
+            // ✅ CORRECCIÓN APLICADA: Se usa gymClass.name en lugar de gymClass.className
+            val className = gymClass.discipline ?: gymClass.className
 
             Text(
                 text = className,
@@ -180,24 +188,27 @@ fun GymClassItemHome(gymClass: GymClass, onClassClick: (GymClass) -> Unit) {
                 style = MaterialTheme.typography.bodyMedium
             )
 
-            // ✅ MANEJO SEGURO DE NULOS
-            Text(
-                text = "Profesor: ${gymClass.professor ?: "N/A"}",
-                style = MaterialTheme.typography.bodyMedium
-            )
+            // ✅ MANEJO SEGURO DE NULOS para profesor (Resuelve el Unresolved reference si el campo puede ser nulo)
+            gymClass.professor?.let { professor ->
+                Text(
+                    text = "Profesor: $professor",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
 
-            // ✅ MANEJO SEGURO DE NULOS
-            Text(
-                text = "Duración: ${gymClass.duration?.let { "$it minutos" } ?: "N/A"}",
-                style = MaterialTheme.typography.bodyMedium
-            )
+            // ✅ MANEJO SEGURO DE NULOS para duración (Resuelve el Unresolved reference si el campo puede ser nulo)
+            gymClass.duration?.let { duration ->
+                Text(
+                    text = "Duración: $duration minutos",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
 
             Text(
                 text = "Cupos: ${gymClass.currentCapacity} / ${gymClass.maxCapacity}",
                 style = MaterialTheme.typography.bodyMedium
             )
 
-            // Ejemplo de botón de reserva (o estado)
             Spacer(modifier = Modifier.height(8.dp))
             Button(onClick = { /* Lógica de reserva */ }) {
                 Text("Reservar")

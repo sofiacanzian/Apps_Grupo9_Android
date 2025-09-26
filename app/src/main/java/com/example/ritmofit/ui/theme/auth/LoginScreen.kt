@@ -1,4 +1,3 @@
-// Archivo: LoginScreen.kt (VERSIÓN FINAL CORREGIDA)
 package com.example.ritmofit.ui.theme.auth
 
 import androidx.compose.foundation.layout.*
@@ -18,6 +17,7 @@ sealed class AuthState {
     object Login : AuthState()
     object Register : AuthState()
     object RequestPasswordReset : AuthState()
+    // Añadimos 'email' y 'nextAction' para la acción de verificación final
     data class OtpVerification(val email: String, val nextAction: String) : AuthState()
     data class ResetPassword(val email: String) : AuthState()
 }
@@ -25,7 +25,12 @@ sealed class AuthState {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(
-    authViewModel: AuthViewModel = viewModel(factory = AuthViewModel.Factory),
+    authViewModel: AuthViewModel = viewModel(factory = AuthViewModel.Factory)
+    // ----------------------------------------------------------------------
+    // CAMBIO CLAVE: Se elimina 'onLoginSuccess: () -> Unit'
+    // La navegación ahora es manejada por Navigation.kt observando
+    // authViewModel.isAuthenticated (SessionManager.isLoggedIn).
+    // ----------------------------------------------------------------------
 ) {
     var authState by remember { mutableStateOf<AuthState>(AuthState.Login) }
 
@@ -44,6 +49,11 @@ fun LoginScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
+    // Sincronizar el estado local del OTP con el ViewModel
+    LaunchedEffect(otpCode) {
+        authViewModel.setOtp(otpCode)
+    }
+
     // Control de navegación y mensajes basado en estado
     LaunchedEffect(successMessage, errorMessage) {
         // Manejo de mensajes de éxito
@@ -54,29 +64,21 @@ fun LoginScreen(
                     duration = SnackbarDuration.Short
                 )
             }
-
             when {
-                // Registro/Login -> OTP Verification
-                msg.contains("OTP enviado para registro") || msg.contains("OTP enviado para login") -> {
-                    val nextAction = if (authState is AuthState.Register) "REGISTER" else "LOGIN"
-                    authState = AuthState.OtpVerification(email, nextAction)
+                // Contraseña restablecida
+                msg.contains("Contraseña restablecida con éxito") -> {
+                    authState = AuthState.Login // Vuelve al login tras restablecer
                     authViewModel.clearMessages()
                 }
-                // Recuperación -> OTP Verification
-                msg.contains("OTP enviado para recuperación") -> {
-                    authState = AuthState.OtpVerification(email, "PASSWORD_RESET")
+                // Verificación de login exitosa: El Navigation.kt se encargará de la navegación
+                msg.contains("Sesión iniciada con éxito") || msg.contains("Usuario registrado con éxito") -> {
+                    // El ViewModel ya guardó el token. NO se necesita llamar a onLoginSuccess() aquí.
+                    // El Navigation.kt verá el cambio en authViewModel.isAuthenticated y navegará.
+                    // Solo limpiamos el mensaje para que no se muestre doble.
                     authViewModel.clearMessages()
                 }
-                // OTP verificado para Recuperación -> Resetear Password
-                msg.contains("OTP verificado para recuperación") -> {
-                    authState = AuthState.ResetPassword(email)
-                    authViewModel.clearMessages()
-                }
-                // Finalización (Sesión iniciada o Password cambiado)
-                msg.contains("Sesión iniciada con éxito") || msg.contains("Usuario registrado con éxito") || msg.contains("Contraseña restablecida con éxito") -> {
-                    authViewModel.clearMessages()
-                    // La navegación a "home" es manejada por Navigation.kt con isAuthenticated
-                }
+                // Manejo de otros éxitos si es necesario
+                else -> authViewModel.clearMessages()
             }
         }
 
@@ -97,7 +99,6 @@ fun LoginScreen(
     Scaffold(
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
     ) { innerPadding ->
-        // Lógica para mostrar la pantalla correcta
         Box(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
             when (val state = authState) {
                 AuthState.Login -> {
@@ -107,7 +108,12 @@ fun LoginScreen(
                         password = password, onPasswordChange = { password = it },
                         isLoading = isLoading,
                         buttonText = "Solicitar Acceso (Enviar OTP)",
-                        onSubmit = { authViewModel.loginAndSendOtp(email, password) }
+                        onSubmit = {
+                            authViewModel.loginAndSendOtp(email, password) {
+                                // El éxito de esta función solo lleva a la siguiente pantalla
+                                authState = AuthState.OtpVerification(email, "LOGIN")
+                            }
+                        }
                     ) {
                         TextButton(onClick = { authState = AuthState.Register }) {
                             Text("¿No tienes cuenta? Regístrate")
@@ -126,7 +132,10 @@ fun LoginScreen(
                         isLoading = isLoading,
                         onSubmit = {
                             if (password == confirmPassword) {
-                                authViewModel.registerAndSendOtp(email, password)
+                                authViewModel.registerAndSendOtp(email, password) {
+                                    // El éxito de esta función solo lleva a la siguiente pantalla
+                                    authState = AuthState.OtpVerification(email, "REGISTER")
+                                }
                             } else {
                                 authViewModel.setErrorMessage("Las contraseñas no coinciden.")
                             }
@@ -142,7 +151,12 @@ fun LoginScreen(
                     RequestResetForm(
                         email = email, onEmailChange = { email = it },
                         isLoading = isLoading,
-                        onSubmit = { authViewModel.requestPasswordResetOtp(email) }
+                        onSubmit = {
+                            authViewModel.requestPasswordResetOtp(email) {
+                                authState = AuthState.ResetPassword(email)
+                                authViewModel.clearMessages()
+                            }
+                        }
                     ) {
                         TextButton(onClick = { authState = AuthState.Login }) {
                             Text("Volver al inicio de sesión")
@@ -153,19 +167,18 @@ fun LoginScreen(
                 is AuthState.OtpVerification -> {
                     OtpVerificationForm(
                         email = state.email,
-                        otpCode = otpCode, onOtpChange = {
-                            otpCode = it // Actualizar el estado local para el TextField
-                            authViewModel.setOtp(it) // Actualizar el StateFlow en el ViewModel
-                        },
+                        otpCode = otpCode, onOtpChange = { otpCode = it },
                         isLoading = isLoading,
                         onSubmit = {
+                            // La lógica de verificación y guardado de token está en el ViewModel
                             authViewModel.confirmOtp(state.email, state.nextAction)
                         },
                         onRequestNewOtp = {
                             when (state.nextAction) {
-                                "REGISTER" -> authViewModel.registerAndSendOtp(state.email, password)
-                                "LOGIN" -> authViewModel.loginAndSendOtp(state.email, password)
-                                "PASSWORD_RESET" -> authViewModel.requestPasswordResetOtp(state.email)
+                                // Asegúrate de que, al reenviar, la contraseña original sea la correcta (si es Login o Register).
+                                "REGISTER" -> authViewModel.registerAndSendOtp(state.email, password) { /* Se queda en la misma pantalla */ }
+                                "LOGIN" -> authViewModel.loginAndSendOtp(state.email, password) { /* Se queda en la misma pantalla */ }
+                                else -> authViewModel.requestPasswordResetOtp(state.email) { /* Se queda en la misma pantalla */ }
                             }
                         }
                     ) {
@@ -183,7 +196,9 @@ fun LoginScreen(
                         isLoading = isLoading,
                         onSubmit = {
                             if (password == confirmPassword) {
-                                authViewModel.resetPassword(state.email, password)
+                                authViewModel.resetPassword(state.email, password) {
+                                    authState = AuthState.Login
+                                }
                             } else {
                                 authViewModel.setErrorMessage("Las contraseñas no coinciden.")
                             }
@@ -200,7 +215,7 @@ fun LoginScreen(
 }
 
 // ----------------------------------------------------
-// Componentes Composable Reutilizables (CORREGIDOS)
+// Componentes Composable Reutilizables (SIN CAMBIOS)
 // ----------------------------------------------------
 
 @Composable
@@ -219,14 +234,14 @@ fun AuthForm(
         Spacer(modifier = Modifier.height(32.dp))
         OutlinedTextField(
             value = email,
-            onValueChange = onEmailChange, // CORREGIDO
+            onValueChange = onEmailChange,
             label = { Text("Email") },
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(modifier = Modifier.height(16.dp))
         OutlinedTextField(
             value = password,
-            onValueChange = onPasswordChange, // CORREGIDO
+            onValueChange = onPasswordChange,
             label = { Text("Contraseña") },
             visualTransformation = PasswordVisualTransformation(),
             modifier = Modifier.fillMaxWidth()
@@ -263,14 +278,14 @@ fun RegisterForm(
         Spacer(modifier = Modifier.height(32.dp))
         OutlinedTextField(
             value = email,
-            onValueChange = onEmailChange, // CORREGIDO
+            onValueChange = onEmailChange,
             label = { Text("Email") },
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(modifier = Modifier.height(16.dp))
         OutlinedTextField(
             value = password,
-            onValueChange = onPasswordChange, // CORREGIDO
+            onValueChange = onPasswordChange,
             label = { Text("Contraseña") },
             visualTransformation = PasswordVisualTransformation(),
             modifier = Modifier.fillMaxWidth()
@@ -278,7 +293,7 @@ fun RegisterForm(
         Spacer(modifier = Modifier.height(16.dp))
         OutlinedTextField(
             value = confirmPassword,
-            onValueChange = onConfirmPasswordChange, // CORREGIDO
+            onValueChange = onConfirmPasswordChange,
             label = { Text("Confirmar Contraseña") },
             visualTransformation = PasswordVisualTransformation(),
             modifier = Modifier.fillMaxWidth()
@@ -314,7 +329,7 @@ fun RequestResetForm(
         Spacer(modifier = Modifier.height(32.dp))
         OutlinedTextField(
             value = email,
-            onValueChange = onEmailChange, // CORREGIDO
+            onValueChange = onEmailChange,
             label = { Text("Email para recuperación") },
             modifier = Modifier.fillMaxWidth()
         )
@@ -349,13 +364,13 @@ fun OtpVerificationForm(
         Spacer(modifier = Modifier.height(32.dp))
         OutlinedTextField(
             value = otpCode,
-            onValueChange = onOtpChange, // CORREGIDO
+            onValueChange = onOtpChange,
             label = { Text("Código OTP") },
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(modifier = Modifier.height(24.dp))
         Button(
-            onClick = onSubmit, enabled = !isLoading && otpCode.length >= 4,
+            onClick = onSubmit, enabled = !isLoading && otpCode.length >= 6, // Ajustado a 6 dígitos
             modifier = Modifier.fillMaxWidth()
         ) {
             if (isLoading) {
@@ -390,7 +405,7 @@ fun ResetPasswordForm(
         Spacer(modifier = Modifier.height(32.dp))
         OutlinedTextField(
             value = password,
-            onValueChange = onPasswordChange, // CORREGIDO
+            onValueChange = onPasswordChange,
             label = { Text("Nueva Contraseña") },
             visualTransformation = PasswordVisualTransformation(),
             modifier = Modifier.fillMaxWidth()
@@ -398,7 +413,7 @@ fun ResetPasswordForm(
         Spacer(modifier = Modifier.height(16.dp))
         OutlinedTextField(
             value = confirmPassword,
-            onValueChange = onConfirmPasswordChange, // CORREGIDO
+            onValueChange = onConfirmPasswordChange,
             label = { Text("Confirmar Nueva Contraseña") },
             visualTransformation = PasswordVisualTransformation(),
             modifier = Modifier.fillMaxWidth()

@@ -79,7 +79,7 @@ fun ReservationsScreen(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Column {
-                                        Text(reservation.classId.name, style = MaterialTheme.typography.titleMedium)
+                                        Text(reservation.classId.className, style = MaterialTheme.typography.titleMedium)
                                         Text("Estado: ${reservation.status}")
                                         Text("Horario: ${reservation.classId.schedule.startTime}")
                                     }

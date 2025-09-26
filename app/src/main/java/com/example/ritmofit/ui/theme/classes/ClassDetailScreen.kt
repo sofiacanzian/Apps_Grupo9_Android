@@ -79,7 +79,7 @@ fun ClassDetailScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text(
-                text = gymClass!!.name,
+                text = gymClass!!.className,
                 style = MaterialTheme.typography.headlineLarge,
                 fontWeight = FontWeight.Bold
             )
@@ -106,7 +106,7 @@ fun ClassDetailScreen(
             Button(
                 onClick = {
                     // 1. Crear la reserva
-                    reservationsViewModel.createReservation(gymClass!!.id)
+                    reservationsViewModel.createReservation(gymClass!!._id)
 
                     // 2. Usar la función del ViewModel para actualizar el cupo localmente.
                     classDetailViewModel.incrementCapacity()

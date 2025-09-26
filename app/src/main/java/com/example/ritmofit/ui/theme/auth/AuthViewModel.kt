@@ -1,4 +1,3 @@
-// Archivo: AuthViewModel.kt (CORREGIDO)
 package com.example.ritmofit.ui.theme.auth
 
 import androidx.lifecycle.ViewModel
@@ -28,28 +27,24 @@ class AuthViewModel(
     private val _successMessage = MutableStateFlow<String?>(null)
     val successMessage: StateFlow<String?> = _successMessage.asStateFlow()
 
-    private val _isAuthenticated = MutableStateFlow(SessionManager.isLoggedIn)
-    val isAuthenticated: StateFlow<Boolean> = _isAuthenticated.asStateFlow()
+    // Usa el StateFlow de SessionManager para que la UI reaccione a los cambios de sesión
+    val isAuthenticated: StateFlow<Boolean> = SessionManager.isLoggedIn
 
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
-    // --- ESTADOS ESPECÍFICOS PARA OTP (AÑADIDOS/MODIFICADOS) ---
     private val _otp = MutableStateFlow("")
     val otp: StateFlow<String> = _otp.asStateFlow()
 
     fun setOtp(newOtp: String) {
-        // Lógica para limitar a 6 dígitos y aceptar solo números
         if (newOtp.length <= 6 && newOtp.all { it.isDigit() }) {
             _otp.value = newOtp
         }
     }
 
-    // Función de la pantalla que llama a la lógica de verificación
     fun confirmOtp(email: String, nextAction: String) {
         verifyOtp(email, _otp.value, nextAction)
     }
-    // -----------------------------------------------------------
 
     fun clearMessages() {
         _errorMessage.value = null
@@ -60,19 +55,17 @@ class AuthViewModel(
         _errorMessage.value = message
     }
 
-    // ----------------------------------------------------
-    // 1. REGISTRO Y ENVÍO DE OTP
-    // ----------------------------------------------------
-    fun registerAndSendOtp(email: String, password: String) {
+    fun registerAndSendOtp(email: String, password: String, onSuccess: () -> Unit) {
         viewModelScope.launch {
             _isLoading.value = true
             _errorMessage.value = null
             _successMessage.value = null
-            _otp.value = "" // Limpiar OTP al iniciar un nuevo flujo
+            _otp.value = ""
             try {
                 val response = apiService.registerAndSendOtp(RegistrationRequest(email, password))
                 if (response.isSuccessful) {
                     _successMessage.value = "OTP enviado para registro"
+                    onSuccess()
                 } else {
                     _errorMessage.value = "Error al registrar: ${response.code()}"
                 }
@@ -84,19 +77,17 @@ class AuthViewModel(
         }
     }
 
-    // ----------------------------------------------------
-    // 2. LOGIN Y ENVÍO DE OTP
-    // ----------------------------------------------------
-    fun loginAndSendOtp(email: String, password: String) {
+    fun loginAndSendOtp(email: String, password: String, onSuccess: () -> Unit) {
         viewModelScope.launch {
             _isLoading.value = true
             _errorMessage.value = null
             _successMessage.value = null
-            _otp.value = "" // Limpiar OTP al iniciar un nuevo flujo
+            _otp.value = ""
             try {
-                val response = apiService.loginAndSendOtp(AuthRequest(email, password))
+                val response = apiService.loginAndSendOtp(AuthRequest(email, password = password))
                 if (response.isSuccessful) {
                     _successMessage.value = "OTP enviado para login"
+                    onSuccess()
                 } else {
                     _errorMessage.value = "Credenciales incorrectas o error: ${response.code()}"
                 }
@@ -108,31 +99,29 @@ class AuthViewModel(
         }
     }
 
-    // ----------------------------------------------------
-    // 3. VERIFICACIÓN DE OTP (Lógica de red, ahora privada)
-    // ----------------------------------------------------
     private fun verifyOtp(email: String, otpCode: String, nextAction: String) {
         viewModelScope.launch {
             _isLoading.value = true
             _errorMessage.value = null
             _successMessage.value = null
             try {
-                val response = apiService.verifyOtpAndLogin(OtpConfirmationRequest(email, otpCode))
+                val request = OtpConfirmationRequest(email, otpCode)
+                val response = apiService.verifyOtpAndLogin(request)
+
                 if (response.isSuccessful) {
                     val userResponse: UserResponse? = response.body()
-                    if (userResponse?.token != null) {
-                        SessionManager.userId = userResponse.user.id
-                        // SessionManager.token = userResponse.token
-                        _isAuthenticated.value = true
 
+                    if (userResponse?.token != null) {
+                        // Llama a la función suspend de SessionManager para guardar el token
+                        SessionManager.setSession(userResponse.token, userResponse.user.id)
+                        _otp.value = ""
                         _successMessage.value = when (nextAction) {
                             "REGISTER" -> "Usuario registrado con éxito"
                             "LOGIN" -> "Sesión iniciada con éxito"
-                            "PASSWORD_RESET" -> "OTP verificado para recuperación"
                             else -> "Verificación exitosa"
                         }
                     } else {
-                        _errorMessage.value = "Error en la respuesta de autenticación."
+                        _errorMessage.value = "Error en la respuesta de autenticación: Token faltante."
                     }
                 } else {
                     _errorMessage.value = "Código OTP incorrecto."
@@ -140,26 +129,24 @@ class AuthViewModel(
             } catch (e: IOException) {
                 _errorMessage.value = "Error de red: ${e.message}"
             } catch (e: Exception) {
-                _errorMessage.value = "Error inesperado: ${e.message}"
+                _errorMessage.value = "Error inesperado: ${e.message}. Asegúrate que el backend devuelva el campo 'token'."
             } finally {
                 _isLoading.value = false
             }
         }
     }
 
-    // ----------------------------------------------------
-    // 4. RECUPERACIÓN DE CONTRASEÑA (SOLICITUD)
-    // ----------------------------------------------------
-    fun requestPasswordResetOtp(email: String) {
+    fun requestPasswordResetOtp(email: String, onSuccess: () -> Unit) {
         viewModelScope.launch {
             _isLoading.value = true
             _errorMessage.value = null
             _successMessage.value = null
-            _otp.value = "" // Limpiar OTP al iniciar un nuevo flujo
+            _otp.value = ""
             try {
                 val response = apiService.requestPasswordResetOtp(AuthRequest(email = email))
                 if (response.isSuccessful) {
                     _successMessage.value = "OTP enviado para recuperación"
+                    onSuccess()
                 } else {
                     _errorMessage.value = "Email no encontrado o error: ${response.code()}"
                 }
@@ -171,29 +158,35 @@ class AuthViewModel(
         }
     }
 
-    // ----------------------------------------------------
-    // 5. RESTABLECIMIENTO DE CONTRASEÑA (FINAL)
-    // ----------------------------------------------------
-    fun resetPassword(email: String, newPassword: String) {
-        // Obtiene el OTP del StateFlow interno
+    fun resetPassword(email: String, newPassword: String, onPasswordResetSuccess: () -> Unit) {
         val otpCode = _otp.value
-
         viewModelScope.launch {
             _isLoading.value = true
             _errorMessage.value = null
             _successMessage.value = null
             try {
-                val response = apiService.resetPassword(PasswordResetRequest(email, newPassword, otpCode))
+                val request = PasswordResetRequest(email, newPassword, otpCode)
+                val response = apiService.resetPassword(request)
+
                 if (response.isSuccessful) {
                     _successMessage.value = "Contraseña restablecida con éxito"
+                    _otp.value = ""
+                    onPasswordResetSuccess()
                 } else {
-                    _errorMessage.value = "Error al restablecer la contraseña."
+                    _errorMessage.value = "Error al restablecer la contraseña. (OTP incorrecto o expirado)."
                 }
             } catch (e: Exception) {
                 _errorMessage.value = "Error de conexión: ${e.message}"
             } finally {
                 _isLoading.value = false
             }
+        }
+    }
+
+    fun logout() {
+        viewModelScope.launch {
+            // Llama a la función suspend de SessionManager para cerrar la sesión
+            SessionManager.logout()
         }
     }
 

@@ -1,3 +1,4 @@
+// Archivo: ClassesScreen.kt
 package com.example.ritmofit.ui.theme.classes
 
 import androidx.compose.foundation.clickable
@@ -18,21 +19,28 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.ritmofit.data.models.GymClass
+// ⚠️ Nota: Asegúrate de que estas dependencias de fecha estén en tu build.gradle
 import org.threeten.bp.LocalDate
 import org.threeten.bp.format.DateTimeFormatter
 import java.util.Locale
+
+// ⚠️ NOTA IMPORTANTE: Debes tener definido ClassesViewModel en tu proyecto.
+// Esto es solo un placeholder para que compile:
+// interface ClassesViewModel : ViewModel { ... }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ClassesScreen(
     onNavigateBack: () -> Unit,
     onClassClick: (GymClass) -> Unit,
-    // Nota: Debes tener una factoría definida en tu ClassesViewModel para que esto funcione.
+    // ⚠️ Se asume que tienes un ClassesViewModel.Factory definido
     classesViewModel: ClassesViewModel = viewModel()
 ) {
     val classesState by classesViewModel.classesState.collectAsState()
 
+    // 💡 Ejecutar la carga de datos una sola vez
     LaunchedEffect(Unit) {
+        // Asumiendo que esta función existe en tu ClassesViewModel
         classesViewModel.fetchClasses()
     }
 
@@ -54,6 +62,7 @@ fun ClassesScreen(
                 .padding(paddingValues),
             contentAlignment = Alignment.Center
         ) {
+            // ⚠️ Se asume que ClassesViewModel.ClassesUiState es una sealed class con Loading, Success, Error
             when (val state = classesState) {
                 is ClassesViewModel.ClassesUiState.Loading -> {
                     CircularProgressIndicator()
@@ -74,7 +83,7 @@ fun ClassesScreen(
                     }
                 }
                 is ClassesViewModel.ClassesUiState.Error -> {
-                    Text(text = "Error: ${state.message}")
+                    Text(text = "Error: ${state.message}", color = MaterialTheme.colorScheme.error)
                 }
                 // Manejar un estado inicial si lo tienes
                 else -> { /* Nada */ }
@@ -91,19 +100,19 @@ fun GymClassItem(gymClass: GymClass, onClassClick: (GymClass) -> Unit) {
         DateTimeFormatter.ofPattern("dd/MM/yyyy", Locale.getDefault())
     }
 
-    val classDateFormatted = remember(gymClass.classDate) {
+    val classDateFormatted = remember(gymClass.classDate, gymClass.schedule.day) {
         val isoDate = gymClass.classDate
         if (isoDate != null) {
             try {
-                // Parseo de fecha (Asegúrate de que 'threetenbp' o 'java.time' esté en tu proyecto)
+                // Parseo de fecha (Asume que gymClass.classDate es una fecha ISO: YYYY-MM-DD)
                 val date = LocalDate.parse(isoDate)
                 date.format(dateFormatter)
             } catch (e: Exception) {
-                // Si falla el parseo, muestra el día de la semana (desde schedule)
+                // Si falla el parseo, muestra el día de la semana
                 gymClass.schedule.day.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
             }
         } else {
-            // Si classDate es nulo, muestra el día de la semana (desde schedule)
+            // Si classDate es nulo, muestra el día de la semana
             gymClass.schedule.day.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
         }
     }
@@ -114,8 +123,8 @@ fun GymClassItem(gymClass: GymClass, onClassClick: (GymClass) -> Unit) {
             .clickable { onClassClick(gymClass) }
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            // Usamos 'discipline' si está disponible, si no, usamos 'name'
-            val className = gymClass.discipline ?: gymClass.name
+            // ✅ CORRECCIÓN/VERIFICACIÓN: Usa discipline si está, sino usa name
+            val className = gymClass.discipline ?: gymClass.className
 
             Text(
                 text = className,

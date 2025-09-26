@@ -1,4 +1,4 @@
-// Archivo: OtpScreen.kt (CORREGIDO)
+// Archivo: OtpScreen.kt (MANTENIDO CON PEQUEÑOS AJUSTES)
 package com.example.ritmofit.ui.theme.auth
 
 import androidx.compose.foundation.layout.*
@@ -10,13 +10,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material3.Button
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.ui.text.font.FontWeight // Añadido para mejor UI
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -61,8 +56,10 @@ fun OtpScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Text("Se ha enviado un código a $email")
-            Spacer(modifier = Modifier.height(16.dp))
+            Text("Verificación OTP", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold) // Agregado título
+            Spacer(modifier = Modifier.height(8.dp))
+            Text("Se ha enviado un código a $email", style = MaterialTheme.typography.bodyMedium)
+            Spacer(modifier = Modifier.height(32.dp))
             OutlinedTextField(
                 value = otp,
                 // onValueChange llama a setOtp en el ViewModel, actualizando el StateFlow
@@ -71,7 +68,7 @@ fun OtpScreen(
                 modifier = Modifier.fillMaxWidth(),
                 isError = errorMessage != null
             )
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(24.dp))
             Button(
                 // CORREGIDO: Pasar 'nextAction' al ViewModel
                 onClick = { authViewModel.confirmOtp(email, nextAction) },
@@ -79,13 +76,14 @@ fun OtpScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 if (isLoading) {
-                    CircularProgressIndicator(color = MaterialTheme.colorScheme.onPrimary)
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(24.dp))
                 } else {
-                    Text("Verificar")
+                    Text("Verificar y Continuar")
                 }
             }
             errorMessage?.let {
                 Spacer(modifier = Modifier.height(8.dp))
+                // Pequeño ajuste para mostrar el error en color
                 Text(it, color = MaterialTheme.colorScheme.error)
             }
         }

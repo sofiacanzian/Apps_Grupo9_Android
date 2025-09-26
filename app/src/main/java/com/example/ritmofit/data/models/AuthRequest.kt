@@ -6,5 +6,8 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class AuthRequest(
     val email: String,
+    // CRÍTICO: Añadir 'password' como opcional para el flujo de Login
+    val password: String? = null,
+    // Mantener 'otp' para las peticiones que lo requieran
     val otp: String? = null
 )

@@ -112,9 +112,11 @@ class HomeViewModel(
         viewModelScope.launch {
             _reservationState.value = ReservationUiState.Loading
             try {
-                val userId = SessionManager.userId ?: throw IllegalStateException("User not authenticated.")
+                // CORRECCIÓN CLAVE: Llama a la función suspend getUserId() en lugar de acceder a la propiedad estática
+                val userId = SessionManager.getUserId() ?: throw IllegalStateException("User not authenticated.")
+
                 val response = apiService.createReservation(
-                    mapOf("userId" to userId, "classId" to gymClass.id)
+                    mapOf("userId" to userId, "classId" to gymClass._id)
                 )
 
                 if (response.isSuccessful) {

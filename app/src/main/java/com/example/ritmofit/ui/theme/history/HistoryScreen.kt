@@ -227,7 +227,7 @@ fun HistoryItemCard(
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = gymClass.name,
+                text = gymClass.className,
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold
             )

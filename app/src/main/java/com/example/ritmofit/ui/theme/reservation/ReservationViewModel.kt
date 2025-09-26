@@ -1,4 +1,3 @@
-// Archivo: ReservationsViewModel.kt
 package com.example.ritmofit.ui.theme.reservation
 
 import androidx.lifecycle.ViewModel
@@ -18,7 +17,6 @@ import java.io.IOException
 class ReservationsViewModel(
     private val apiService: ApiService
 ) : ViewModel() {
-    // ... (El resto de tu código de ViewModel)
     sealed class ReservationsUiState {
         object Loading : ReservationsUiState()
         data class Success(val reservations: List<Reservation>) : ReservationsUiState()
@@ -31,11 +29,17 @@ class ReservationsViewModel(
     private val _isBooking = MutableStateFlow(false)
     val isBooking: StateFlow<Boolean> = _isBooking.asStateFlow()
 
+    // Ejecutamos la carga inicial de reservas
+    init {
+        fetchUserReservations()
+    }
+
     fun fetchUserReservations() {
         viewModelScope.launch {
             _reservationsState.value = ReservationsUiState.Loading
             try {
-                val userId = SessionManager.userId ?: throw IllegalStateException("User not authenticated.")
+                // CORRECCIÓN CLAVE 1: Usar la función suspend getUserId()
+                val userId = SessionManager.getUserId() ?: throw IllegalStateException("User not authenticated.")
 
                 // CORRECCIÓN: La función fue renombrada a 'getReservations' en ApiService.kt
                 val response = apiService.getReservations(userId)
@@ -48,6 +52,8 @@ class ReservationsViewModel(
                 }
             } catch (e: IOException) {
                 _reservationsState.value = ReservationsUiState.Error("Error de red: ${e.message}")
+            } catch (e: IllegalStateException) {
+                _reservationsState.value = ReservationsUiState.Error("Error de autenticación: ${e.message}")
             } catch (e: Exception) {
                 _reservationsState.value = ReservationsUiState.Error("Error inesperado: ${e.message}")
             }
@@ -58,7 +64,9 @@ class ReservationsViewModel(
         viewModelScope.launch {
             _isBooking.value = true
             try {
-                val userId = SessionManager.userId ?: throw IllegalStateException("User not authenticated.")
+                // CORRECCIÓN CLAVE 2: Usar la función suspend getUserId()
+                val userId = SessionManager.getUserId() ?: throw IllegalStateException("User not authenticated.")
+
                 val response = apiService.createReservation(
                     mapOf("userId" to userId, "gymClassId" to classId)
                 )
@@ -67,10 +75,14 @@ class ReservationsViewModel(
                     // Volvemos a llamar a fetchUserReservations() para actualizar la lista de reservas
                     fetchUserReservations()
                 } else {
-                    // Handle API error
+                    // Manejo de error de la API (podrías usar un StateFlow de error separado si es necesario)
+                    // Por ahora, solo se maneja en el catch general
+                    throw Exception("Fallo en la reserva: Código ${response.code()}")
                 }
+            } catch (e: IllegalStateException) {
+                // Manejo de error de autenticación
             } catch (e: Exception) {
-                // Handle network or other errors
+                // Handle network or other errors (se podría notificar al usuario)
             } finally {
                 _isBooking.value = false
             }
