@@ -9,7 +9,7 @@ import com.example.ritmofit.ui.classes.ClassDetailScreen
 import com.example.ritmofit.di.ViewModelProvider
 
 @Composable
-fun RitmoFitNavigation() {
+fun RitmoFitClassListNavigation_Old() { // Renamed function
     val navController = rememberNavController()
     val classViewModel = ViewModelProvider.provideClassViewModel()
 

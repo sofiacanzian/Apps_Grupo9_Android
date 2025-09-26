@@ -1,6 +1,6 @@
 package com.example.ritmofit.network
 
-import com.example.ritmofit.model.Class
+import com.example.ritmofit.data.models.GymClass // Cambiado de model.Class a data.models.GymClass
 import retrofit2.http.GET
 import retrofit2.http.Path
 import retrofit2.http.Query
@@ -14,10 +14,10 @@ interface ClassService {
         @Query("date") date: String? = null,
         @Query("page") page: Int = 1,
         @Query("size") size: Int = 20
-    ): Response<List<Class>>
+    ): Response<List<GymClass>> // Cambiado de Class a GymClass
 
     @GET("api/classes/{id}")
     suspend fun getClassDetail(
         @Path("id") classId: String
-    ): Response<Class>
+    ): Response<GymClass> // Cambiado de Class a GymClass
 }

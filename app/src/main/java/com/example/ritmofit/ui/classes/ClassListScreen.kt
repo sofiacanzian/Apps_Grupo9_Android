@@ -9,8 +9,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.example.ritmofit.data.models.GymClass // Importar GymClass
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.map
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -69,8 +69,8 @@ fun ClassListScreen(
                     ) {
                         items(
                             items = classes,
-                            key = { it.id }
-                        ) { class_ ->
+                            key = { it.id } // Asumiendo que GymClass tiene un campo 'id' único
+                        ) { class_ -> // class_ es de tipo GymClass aquí debido a la inferencia de 'classes'
                             ClassCard(
                                 class_ = class_,
                                 onClick = { onClassClick(class_.id) }
@@ -122,7 +122,7 @@ fun ClassListScreen(
 
 @Composable
 fun ClassCard(
-    class_: Class,
+    class_: GymClass, // Cambiado a GymClass
     onClick: () -> Unit
 ) {
     Card(
@@ -139,15 +139,16 @@ fun ClassCard(
                 style = MaterialTheme.typography.titleMedium
             )
             Text(
-                text = "Profesor: ${class_.instructor}",
+                text = "Profesor: ${class_.professor}", // Cambiado a professor
                 style = MaterialTheme.typography.bodyMedium
             )
             Text(
-                text = "Cupos: ${class_.availableSpots}/${class_.totalSpots}",
+                // Calculado a partir de maxCapacity y currentCapacity
+                text = "Cupos: ${(class_.maxCapacity - class_.currentCapacity)}/${class_.maxCapacity}", 
                 style = MaterialTheme.typography.bodySmall
             )
             Text(
-                text = "Sede: ${class_.sede}",
+                text = "Sede: ${class_.location.name}", // Cambiado a location.name
                 style = MaterialTheme.typography.bodySmall
             )
         }
