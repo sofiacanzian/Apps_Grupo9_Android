@@ -86,7 +86,7 @@ fun ReservationsScreen(
                                 ) {
                                     Column {
                                         if (gymClass != null) {
-                                            // ✅ CORRECCIÓN: Usamos 'name' en lugar de 'className'
+                                            // ✅ Usamos 'name' que es el campo correcto de GymClass
                                             Text(gymClass.className, style = MaterialTheme.typography.titleMedium)
                                             Text("Horario: ${gymClass.schedule.startTime}")
                                         } else {
