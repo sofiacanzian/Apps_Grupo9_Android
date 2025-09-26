@@ -26,11 +26,7 @@ sealed class AuthState {
 @Composable
 fun LoginScreen(
     authViewModel: AuthViewModel = viewModel(factory = AuthViewModel.Factory)
-    // ----------------------------------------------------------------------
-    // CAMBIO CLAVE: Se elimina 'onLoginSuccess: () -> Unit'
-    // La navegación ahora es manejada por Navigation.kt observando
-    // authViewModel.isAuthenticated (SessionManager.isLoggedIn).
-    // ----------------------------------------------------------------------
+    // Se elimina 'onLoginSuccess' ya que la navegación es reactiva al estado del ViewModel
 ) {
     var authState by remember { mutableStateOf<AuthState>(AuthState.Login) }
 
@@ -38,7 +34,6 @@ fun LoginScreen(
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
-    var otpCode by remember { mutableStateOf("") }
 
     // Estados del ViewModel
     val isLoading by authViewModel.isLoading.collectAsState()
@@ -48,11 +43,6 @@ fun LoginScreen(
     // Estado del Snackbar
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
-
-    // Sincronizar el estado local del OTP con el ViewModel
-    LaunchedEffect(otpCode) {
-        authViewModel.setOtp(otpCode)
-    }
 
     // Control de navegación y mensajes basado en estado
     LaunchedEffect(successMessage, errorMessage) {
@@ -70,11 +60,9 @@ fun LoginScreen(
                     authState = AuthState.Login // Vuelve al login tras restablecer
                     authViewModel.clearMessages()
                 }
-                // Verificación de login exitosa: El Navigation.kt se encargará de la navegación
+                // Verificación de login/registro exitosa
                 msg.contains("Sesión iniciada con éxito") || msg.contains("Usuario registrado con éxito") -> {
-                    // El ViewModel ya guardó el token. NO se necesita llamar a onLoginSuccess() aquí.
-                    // El Navigation.kt verá el cambio en authViewModel.isAuthenticated y navegará.
-                    // Solo limpiamos el mensaje para que no se muestre doble.
+                    // La navegación ocurre automáticamente en Navigation.kt
                     authViewModel.clearMessages()
                 }
                 // Manejo de otros éxitos si es necesario
@@ -152,9 +140,9 @@ fun LoginScreen(
                         email = email, onEmailChange = { email = it },
                         isLoading = isLoading,
                         onSubmit = {
+                            // ✅ MODIFICACIÓN CLAVE: Después de solicitar el OTP, navega a la verificación.
                             authViewModel.requestPasswordResetOtp(email) {
-                                authState = AuthState.ResetPassword(email)
-                                authViewModel.clearMessages()
+                                authState = AuthState.OtpVerification(email, "RESET_PASSWORD")
                             }
                         }
                     ) {
@@ -165,19 +153,36 @@ fun LoginScreen(
                 }
 
                 is AuthState.OtpVerification -> {
+                    // Leemos el estado del OTP directamente del ViewModel
+                    val vmOtpCode by authViewModel.otp.collectAsState()
+
                     OtpVerificationForm(
                         email = state.email,
-                        otpCode = otpCode, onOtpChange = { otpCode = it },
+                        // Usamos el estado del ViewModel
+                        otpCode = vmOtpCode,
+                        // Escribimos el valor de entrada directamente al ViewModel
+                        onOtpChange = { newOtp ->
+                            authViewModel.setOtp(newOtp)
+                        },
                         isLoading = isLoading,
                         onSubmit = {
                             // La lógica de verificación y guardado de token está en el ViewModel
-                            authViewModel.confirmOtp(state.email, state.nextAction)
+                            authViewModel.confirmOtp(state.email, state.nextAction) {
+                                // ✅ LÓGICA DE NAVEGACIÓN DESPUÉS DE LA VERIFICACIÓN DE OTP:
+                                if (state.nextAction == "RESET_PASSWORD") {
+                                    // Si la verificación para RESET_PASSWORD es exitosa, pasa al formulario de cambio.
+                                    authState = AuthState.ResetPassword(state.email)
+                                }
+                                // Para "LOGIN" y "REGISTER", el ViewModel manejará la sesión y el LaunchedEffect se encargará
+                                // de cualquier navegación fuera de esta pantalla.
+                            }
                         },
                         onRequestNewOtp = {
                             when (state.nextAction) {
-                                // Asegúrate de que, al reenviar, la contraseña original sea la correcta (si es Login o Register).
                                 "REGISTER" -> authViewModel.registerAndSendOtp(state.email, password) { /* Se queda en la misma pantalla */ }
                                 "LOGIN" -> authViewModel.loginAndSendOtp(state.email, password) { /* Se queda en la misma pantalla */ }
+                                // ✅ MODIFICACIÓN: Si es password reset, usamos la función de reset.
+                                "RESET_PASSWORD" -> authViewModel.requestPasswordResetOtp(state.email) { /* Se queda en la misma pantalla */ }
                                 else -> authViewModel.requestPasswordResetOtp(state.email) { /* Se queda en la misma pantalla */ }
                             }
                         }
@@ -189,15 +194,26 @@ fun LoginScreen(
                 }
 
                 is AuthState.ResetPassword -> {
+                    // El OTP para el reset ya está almacenado en el ViewModel,
+                    // por lo que solo necesitamos la nueva contraseña.
                     ResetPasswordForm(
                         email = state.email,
                         password = password, onPasswordChange = { password = it },
                         confirmPassword = confirmPassword, onConfirmPasswordChange = { confirmPassword = it },
                         isLoading = isLoading,
                         onSubmit = {
+                            // ✅ MODIFICACIÓN CLAVE: Obtenemos el OTP guardado
+                            val currentOtp = authViewModel.otp.value
+
                             if (password == confirmPassword) {
-                                authViewModel.resetPassword(state.email, password) {
-                                    authState = AuthState.Login
+                                if (currentOtp.isNotBlank()) {
+                                    // ✅ MODIFICACIÓN CLAVE: Pasamos el OTP almacenado para la API
+                                    authViewModel.resetPassword(state.email, password, currentOtp) {
+                                        // El onPasswordResetSuccess del VM establece el mensaje de éxito
+                                        // y este LaunchedEffect navegará a AuthState.Login
+                                    }
+                                } else {
+                                    authViewModel.setErrorMessage("El código de verificación está vacío o ha expirado. Por favor, solicítelo de nuevo.")
                                 }
                             } else {
                                 authViewModel.setErrorMessage("Las contraseñas no coinciden.")
@@ -215,7 +231,7 @@ fun LoginScreen(
 }
 
 // ----------------------------------------------------
-// Componentes Composable Reutilizables (SIN CAMBIOS)
+// Componentes Composable Reutilizables (SIN CAMBIOS E INCLUIDOS)
 // ----------------------------------------------------
 
 @Composable

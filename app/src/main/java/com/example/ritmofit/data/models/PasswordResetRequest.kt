@@ -7,6 +7,5 @@ import kotlinx.serialization.Serializable
 data class PasswordResetRequest(
     val email: String,
     val newPassword: String,
-    // ✅ CAMBIO: De 'otpCode' a 'otp' para coincidir con el backend
-    val otp: String
+    val otp: String // ✅ Esto es correcto
 )

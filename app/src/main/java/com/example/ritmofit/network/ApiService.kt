@@ -11,6 +11,7 @@ import com.example.ritmofit.data.models.User
 import com.example.ritmofit.data.models.UserResponse
 import retrofit2.Response
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.PUT
@@ -23,9 +24,8 @@ import retrofit2.http.Query
 interface ApiService {
 
     // ----------------------------------------------------
-    // 🚀 ENDPOINTS DE AUTENTICACIÓN (RUTAS CORREGIDAS PARA EL 404)
+    // 🚀 ENDPOINTS DE AUTENTICACIÓN
     // ----------------------------------------------------
-    // Se ha REINSTALADO el prefijo "api/" para que el servidor las encuentre.
 
     @POST("api/auth/register-send-otp") // 1. Registro: Enviar datos y solicitar OTP
     suspend fun registerAndSendOtp(@Body request: RegistrationRequest): Response<Unit>
@@ -44,7 +44,20 @@ interface ApiService {
 
 
     // ----------------------------------------------------
-    // OTROS ENDPOINTS (Mantenidos)
+    // 👤 ENDPOINTS DE PERFIL (PROTEGIDOS)
+    // ----------------------------------------------------
+
+    @GET("api/profile/{userId}")
+    suspend fun getUserProfile(@Path("userId") userId: String): Response<User>
+
+    @PUT("api/profile/{userId}")
+    suspend fun updateUserProfile(
+        @Path("userId") userId: String,
+        @Body user: User
+    ): Response<User>
+
+    // ----------------------------------------------------
+    // 🏋️ ENDPOINTS DE CLASES (PROTEGIDOS - CRUD USUARIO/ADMIN)
     // ----------------------------------------------------
 
     @GET("api/classes")
@@ -57,8 +70,37 @@ interface ApiService {
     @GET("api/filters")
     suspend fun getFilters(): Response<FilterResponse>
 
+    @GET("api/classes/{classId}")
+    suspend fun getClassDetails(@Path("classId") classId: String): Response<GymClass>
+
+    // Rutas de administración de clases (Asumiendo que requieren token de Admin)
+    @POST("api/classes")
+    suspend fun createClass(@Body gymClass: GymClass): Response<GymClass>
+
+    @PUT("api/classes/{classId}")
+    suspend fun updateClass(
+        @Path("classId") classId: String,
+        @Body gymClass: GymClass
+    ): Response<GymClass>
+
+    @DELETE("api/classes/{classId}")
+    suspend fun deleteClass(@Path("classId") classId: String): Response<Unit>
+
+
+    // ----------------------------------------------------
+    // 📅 ENDPOINTS DE RESERVAS E HISTORIAL (PROTEGIDOS)
+    // ----------------------------------------------------
+
+    @POST("api/reservations")
+    suspend fun createReservation(
+        @Body reservationData: Map<String, String>
+    ): Response<Reservation>
+
     @GET("api/reservations/{userId}")
     suspend fun getReservations(@Path("userId") userId: String): Response<List<Reservation>>
+
+    @POST("api/reservations/cancel/{reservationId}")
+    suspend fun cancelReservation(@Path("reservationId") reservationId: String): Response<Unit>
 
     @GET("api/history/{userId}")
     suspend fun getAttendanceHistory(
@@ -66,24 +108,4 @@ interface ApiService {
         @Query("startDate") startDate: String? = null,
         @Query("endDate") endDate: String? = null
     ): Response<List<Reservation>>
-
-    @POST("api/reservations")
-    suspend fun createReservation(
-        @Body reservationData: Map<String, String>
-    ): Response<Reservation>
-
-    @POST("api/reservations/cancel/{reservationId}")
-    suspend fun cancelReservation(@Path("reservationId") reservationId: String): Response<Unit>
-
-    @GET("api/profile/{userId}")
-    suspend fun getUserProfile(@Path("userId") userId: String): Response<User>
-
-    @PUT("api/profile/{userId}")
-    suspend fun updateUserProfile(
-        @Path("userId") userId: String,
-        @Body user: User
-    ): Response<User>
-
-    @GET("api/classes/{classId}")
-    suspend fun getClassDetails(@Path("classId") classId: String): Response<GymClass>
 }
