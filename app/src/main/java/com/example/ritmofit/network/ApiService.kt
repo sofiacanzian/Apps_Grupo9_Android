@@ -1,3 +1,4 @@
+// archivo: apiservice.kt
 package com.example.ritmofit.network
 
 import com.example.ritmofit.data.models.AuthRequest
@@ -14,16 +15,23 @@ import retrofit2.http.PUT
 import retrofit2.http.Path
 import retrofit2.http.Query
 
+// --- SE ELIMINA LA DEFINICIÓN DE INTERFACE REDUNDANTE AQUÍ ---
+// import kotlinx.serialization.Serializable
+// interface FilterResponse {
+//     val locations: List<String>
+//     val disciplines: List<String>
+// }
+// ---------------------------------------------------------------------------------------
+
+
 interface ApiService {
 
     @POST("api/auth/send-otp")
     suspend fun sendOtp(@Body authRequest: AuthRequest): Response<Void>
 
-    // Ruta de confirmación de OTP modificada para esperar un objeto UserResponse
     @POST("api/auth/confirm-otp")
     suspend fun confirmOtp(@Body otpRequest: OtpConfirmationRequest): Response<UserResponse>
 
-    // Ruta para obtener clases con filtros (modificada)
     @GET("api/classes")
     suspend fun getClasses(
         @Query("location") location: String? = null,
@@ -31,12 +39,22 @@ interface ApiService {
         @Query("date") date: String? = null
     ): Response<List<GymClass>>
 
-    // Nueva ruta para obtener filtros disponibles
     @GET("api/filters")
+    // Se usará la clase FilterResponse definida en el archivo FilterResponse.kt
     suspend fun getFilters(): Response<FilterResponse>
 
+    // Ruta para reservas activas/futuras
     @GET("api/reservations/{userId}")
-    suspend fun getUserReservations(@Path("userId") userId: String): Response<List<Reservation>>
+    suspend fun getReservations(@Path("userId") userId: String): Response<List<Reservation>>
+
+    // --- RUTA PARA HISTORIAL CON FILTROS ---
+    @GET("api/history/{userId}")
+    suspend fun getAttendanceHistory(
+        @Path("userId") userId: String,
+        @Query("startDate") startDate: String? = null,
+        @Query("endDate") endDate: String? = null
+    ): Response<List<Reservation>>
+    // ------------------------------------
 
     @POST("api/reservations")
     suspend fun createReservation(
