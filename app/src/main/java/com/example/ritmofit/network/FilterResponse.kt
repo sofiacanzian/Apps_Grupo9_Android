@@ -1,5 +1,4 @@
 // Archivo: com/example/ritmofit/network/FilterResponse.kt
-
 package com.example.ritmofit.network
 
 import kotlinx.serialization.Serializable

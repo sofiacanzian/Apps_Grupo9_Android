@@ -1,36 +1,54 @@
+// Archivo: HomeScreen.kt (MODIFICADO Y COMPLETO)
 package com.example.ritmofit.home
 
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.ExposedDropdownMenuBox
+
+// Imports de Foundation y Layout
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+
+// Imports de Material 3 y Runtime
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue // 🔑 CORRECCIÓN 1: AGREGADA LA IMPORTACIÓN SETVALUE
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.font.FontWeight
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.ritmofit.data.models.GymClass
+
+// Imports de Íconos
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.FitnessCenter
-import androidx.compose.ui.text.font.FontWeight
-// ⚠️ Nota: Asegúrate de que estas dependencias de fecha estén en tu build.gradle
+import androidx.compose.material.icons.filled.CalendarMonth // ÚNICA INSTANCIA
+
+// Imports de Datos y Modelos
+import com.example.ritmofit.data.models.GymClass
+import com.example.ritmofit.network.FilterResponse
+
+// Imports de Fecha (ThreetenBP y Java)
 import org.threeten.bp.LocalDate
 import org.threeten.bp.format.DateTimeFormatter
+import org.threeten.bp.ZoneId
 import java.util.Locale
-
-// ⚠️ NOTA IMPORTANTE: Debes tener definido HomeViewModel en tu proyecto.
-// Esto es solo un placeholder para que compile:
-// interface HomeViewModel : ViewModel { ... }
-// O usar tu GymClassesViewModel en su lugar y renombrar la instancia.
+import java.text.SimpleDateFormat
+import java.util.Date
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -41,25 +59,23 @@ fun HomeScreen(
     onNavigateToHistory: () -> Unit,
     onNavigateToClasses: () -> Unit,
     onClassClick: (GymClass) -> Unit,
-    // ⚠️ Se asume que tienes un HomeViewModel.Factory definido
-    homeViewModel: HomeViewModel = viewModel()
+    homeViewModel: HomeViewModel = viewModel(factory = HomeViewModel.Factory)
 ) {
     val classesState by homeViewModel.classesState.collectAsState()
     val filtersState by homeViewModel.filtersState.collectAsState()
 
-    // 💡 Ejecutar la carga de datos una sola vez
+    // Leer los filtros directamente del ViewModel (sin flow, son mutableStateOf)
+    val selectedLocation = homeViewModel.selectedLocation
+    val selectedDiscipline = homeViewModel.selectedDiscipline
+    val selectedDate = homeViewModel.selectedDate
+
+    // Ejecutar la carga de datos una sola vez
     LaunchedEffect(Unit) {
-        // Asumiendo que estas funciones existen en tu HomeViewModel
         homeViewModel.fetchFilters()
         homeViewModel.fetchClasses()
     }
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("RitmoFit") }
-            )
-        },
         bottomBar = {
             NavigationBar {
                 NavigationBarItem(
@@ -100,8 +116,30 @@ fun HomeScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // Sección de filtros (descomentar cuando esté implementada)
-            // FilterSection(homeViewModel, filtersState)
+            // ✅ SECCIÓN DE FILTROS AÑADIDA Y DESCOMENTADA
+            when (val state = filtersState) {
+                is HomeViewModel.FilterUiState.Success -> {
+                    FilterSection(
+                        filterOptions = state.filters,
+                        selectedLocation = selectedLocation,
+                        selectedDiscipline = selectedDiscipline,
+                        selectedDate = selectedDate,
+                        onLocationSelected = homeViewModel::setLocationFilter,
+                        onDisciplineSelected = homeViewModel::setDisciplineFilter,
+                        onDateSelected = homeViewModel::setDateFilter,
+                        onClearFilters = homeViewModel::clearFilters
+                    )
+                }
+                is HomeViewModel.FilterUiState.Loading -> {
+                    // Muestra un indicador de carga mientras espera las opciones de filtro
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                }
+                is HomeViewModel.FilterUiState.Error -> {
+                    Text("Error al cargar filtros: ${state.message}", color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp))
+                }
+                else -> {}
+            }
+            Divider()
 
             Box(
                 modifier = Modifier
@@ -109,7 +147,7 @@ fun HomeScreen(
                     .padding(horizontal = 16.dp, vertical = 8.dp),
                 contentAlignment = Alignment.Center
             ) {
-                // ⚠️ Se asume que HomeViewModel.ClassesUiState es una sealed class con Loading, Success, Error
+                // Se asume que HomeViewModel.ClassesUiState es una sealed class con Loading, Success, Error
                 when (val state = classesState) {
                     is HomeViewModel.ClassesUiState.Loading -> {
                         CircularProgressIndicator()
@@ -139,7 +177,210 @@ fun HomeScreen(
     }
 }
 
-// Componente para la lista de clases en Home (unificado)
+// -----------------------------------------------------------------------------
+// --- COMPONENTES DE FILTRO ---
+// -----------------------------------------------------------------------------
+
+@Composable
+fun FilterSection(
+    filterOptions: FilterResponse,
+    selectedLocation: String?,
+    selectedDiscipline: String?,
+    selectedDate: Date?,
+    onLocationSelected: (String?) -> Unit,
+    onDisciplineSelected: (String?) -> Unit,
+    onDateSelected: (Date?) -> Unit,
+    onClearFilters: () -> Unit
+) {
+    // Definición de FilterCriteria para contar filtros activos
+    val activeFiltersCount = listOfNotNull(selectedLocation, selectedDiscipline, selectedDate).size
+
+    Column(modifier = Modifier.padding(16.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            val filterText = if (activeFiltersCount > 0) {
+                "Filtros Activos ($activeFiltersCount)"
+            } else {
+                "Filtros"
+            }
+            Text(filterText, style = MaterialTheme.typography.titleMedium)
+
+            TextButton(
+                onClick = onClearFilters,
+                enabled = activeFiltersCount > 0
+            ) {
+                Text("Limpiar Filtros")
+            }
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            // 1. Filtro de Ubicación
+            FilterDropdown(
+                label = "Ubicación",
+                options = filterOptions.locations,
+                selectedValue = selectedLocation,
+                onValueSelected = onLocationSelected,
+                modifier = Modifier.weight(1f)
+            )
+
+            // 2. Filtro de Disciplina
+            FilterDropdown(
+                label = "Disciplina",
+                options = filterOptions.disciplines,
+                selectedValue = selectedDiscipline,
+                onValueSelected = onDisciplineSelected,
+                modifier = Modifier.weight(1f)
+            )
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // 3. Filtro de Fecha
+        FilterDateButton(
+            currentDate = selectedDate,
+            onDateSelected = onDateSelected,
+            onClear = onClearFilters // Llama a clearFilters general
+        )
+    }
+}
+
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun FilterDropdown(
+    label: String,
+    options: List<String>,
+    selectedValue: String?,
+    onValueSelected: (String?) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var expanded by remember { mutableStateOf(false) } // Línea 261 (Corregida por la importación setValue)
+
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = !expanded },
+        modifier = modifier
+    ) {
+        OutlinedTextField(
+            value = selectedValue ?: "Todas",
+            onValueChange = {},
+            readOnly = true,
+            label = { Text(label) },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier.menuAnchor().fillMaxWidth()
+        )
+
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            // Opción para seleccionar "Todas" (desactiva el filtro)
+            DropdownMenuItem(
+                text = { Text("Todas") },
+                onClick = {
+                    onValueSelected(null)
+                    expanded = false
+                },
+                contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding
+            )
+            Divider()
+
+            options.forEach { option ->
+                DropdownMenuItem(
+                    text = { Text(option) },
+                    onClick = {
+                        onValueSelected(option)
+                        expanded = false
+                    },
+                    contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding
+                )
+            }
+        }
+    }
+}
+
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun FilterDateButton(
+    currentDate: Date?,
+    onDateSelected: (Date?) -> Unit,
+    onClear: () -> Unit
+) {
+    var showDatePicker by remember { mutableStateOf(false) } // Línea 314 (Corregida por la importación setValue)
+
+    // Formateador para mostrar la fecha al usuario
+    val displayFormatter = remember { SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()) }
+
+    val dateText = remember(currentDate) {
+        if (currentDate == null) {
+            "Fecha (Todas)"
+        } else {
+            "Fecha: ${displayFormatter.format(currentDate)}"
+        }
+    }
+
+    OutlinedButton(
+        onClick = { showDatePicker = true },
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Icon(Icons.Default.CalendarMonth, contentDescription = "Seleccionar Fecha")
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(dateText)
+    }
+
+    if (currentDate != null) {
+        TextButton(onClick = { onDateSelected(null) }) {
+            Text("Quitar Filtro de Fecha")
+        }
+    }
+
+
+    if (showDatePicker) {
+        // 🔑 CORRECCIÓN 2: Eliminamos la referencia a 'initialSelectedDateMillis' en la inicialización
+        val initialMillis = currentDate?.time
+
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = initialMillis
+        )
+
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val selectedDateMillis = datePickerState.selectedDateMillis
+                        if (selectedDateMillis != null) {
+                            // Convierte milisegundos de vuelta a java.util.Date
+                            onDateSelected(Date(selectedDateMillis))
+                        } else {
+                            onDateSelected(null)
+                        }
+                        showDatePicker = false
+                    }
+                ) {
+                    Text("Aceptar")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text("Cancelar")
+                }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+}
+
+
+// --- Componente de Clase (Sin cambios) ---
+
 @Composable
 fun GymClassItemHome(gymClass: GymClass, onClassClick: (GymClass) -> Unit) {
 
@@ -170,7 +411,6 @@ fun GymClassItemHome(gymClass: GymClass, onClassClick: (GymClass) -> Unit) {
             .clickable { onClassClick(gymClass) }
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            // ✅ CORRECCIÓN APLICADA: Se usa gymClass.name en lugar de gymClass.className
             val className = gymClass.discipline ?: gymClass.className
 
             Text(
@@ -188,7 +428,6 @@ fun GymClassItemHome(gymClass: GymClass, onClassClick: (GymClass) -> Unit) {
                 style = MaterialTheme.typography.bodyMedium
             )
 
-            // ✅ MANEJO SEGURO DE NULOS para profesor (Resuelve el Unresolved reference si el campo puede ser nulo)
             gymClass.professor?.let { professor ->
                 Text(
                     text = "Profesor: $professor",
@@ -196,7 +435,6 @@ fun GymClassItemHome(gymClass: GymClass, onClassClick: (GymClass) -> Unit) {
                 )
             }
 
-            // ✅ MANEJO SEGURO DE NULOS para duración (Resuelve el Unresolved reference si el campo puede ser nulo)
             gymClass.duration?.let { duration ->
                 Text(
                     text = "Duración: $duration minutos",

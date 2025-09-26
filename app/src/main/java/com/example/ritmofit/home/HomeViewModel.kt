@@ -9,7 +9,6 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.CreationExtras
 import com.example.ritmofit.RitmoFitApplication
 import com.example.ritmofit.data.models.GymClass
-import com.example.ritmofit.data.models.Reservation
 import com.example.ritmofit.data.models.SessionManager
 import com.example.ritmofit.network.ApiService
 import com.example.ritmofit.network.FilterResponse
@@ -19,8 +18,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.io.IOException
 import java.text.SimpleDateFormat
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
 import java.util.Date
 import java.util.Locale
 
@@ -33,6 +30,7 @@ class HomeViewModel(
     private val _reservationState = MutableStateFlow<ReservationUiState>(ReservationUiState.Idle)
     val reservationState: StateFlow<ReservationUiState> = _reservationState.asStateFlow()
 
+    // 🔑 Estados de los filtros
     var selectedLocation by mutableStateOf<String?>(null)
     var selectedDiscipline by mutableStateOf<String?>(null)
     var selectedDate by mutableStateOf<Date?>(null)
@@ -59,11 +57,35 @@ class HomeViewModel(
         data class Error(val message: String) : FilterUiState()
     }
 
+    // 🔑 Funciones para establecer los filtros y recargar las clases
+    fun setLocationFilter(location: String?) {
+        selectedLocation = location
+        fetchClasses()
+    }
+
+    fun setDisciplineFilter(discipline: String?) {
+        selectedDiscipline = discipline
+        fetchClasses()
+    }
+
+    fun setDateFilter(date: Date?) {
+        selectedDate = date
+        fetchClasses()
+    }
+
+    fun clearFilters() {
+        selectedLocation = null
+        selectedDiscipline = null
+        selectedDate = null
+        fetchClasses()
+    }
+
+
     fun fetchClasses() {
         viewModelScope.launch {
             _classesState.value = ClassesUiState.Loading
             try {
-                // Formato de la fecha para el backend
+                // Formato de la fecha para el backend (YYYY-MM-DD)
                 val formattedDate = selectedDate?.let {
                     val formatter = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
                     formatter.format(it)
@@ -112,7 +134,6 @@ class HomeViewModel(
         viewModelScope.launch {
             _reservationState.value = ReservationUiState.Loading
             try {
-                // CORRECCIÓN CLAVE: Llama a la función suspend getUserId() en lugar de acceder a la propiedad estática
                 val userId = SessionManager.getUserId() ?: throw IllegalStateException("User not authenticated.")
 
                 val response = apiService.createReservation(

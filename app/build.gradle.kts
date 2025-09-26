@@ -1,5 +1,5 @@
-// Archivo: build.gradle.kts(app) MODIFICADO
-val compose_version = "1.5.4"
+// Archivo: build.gradle.kts(app) (CORREGIDO)
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -57,54 +57,71 @@ android {
 }
 
 dependencies {
-    // Librerías ya existentes
-    implementation("com.jakewharton.threetenabp:threetenabp:1.4.0")
-
-
-    // CAMBIO 1: Agregamos el CORE de DataStore, a veces necesario.
-    implementation("androidx.datastore:datastore-core:1.0.0")
-    implementation("androidx.datastore:datastore-preferences:1.0.0") // Ya estaba
-
-    // CAMBIO 2: Actualizamos Corrutinas a una versión más reciente (1.8.1) para asegurar compatibilidad.
+    // --- DEFINICIÓN DE VERSIONES ---
     val coroutinesVersion = "1.8.1"
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:$coroutinesVersion")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:$coroutinesVersion")
+    val dataStoreVersion = "1.0.0"
+    val lifecycleVersion = "2.8.3"
+    val activityComposeVersion = "1.9.0"
 
-    implementation("com.google.code.gson:gson:2.10.1")
-    implementation("io.coil-kt:coil-compose:2.4.0")
-    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
-
-    // Kotlinx Serialization
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
-
-    // Dependencias por defecto de Android KTX
-    implementation("androidx.core:core-ktx:1.13.1")
-    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.3")
-
-    // Dependencias de Compose
+    // --- PLATAFORMA DE COMPOSE (BOM) ---
+    // Define las versiones para todas las librerías Compose (incluyendo Material3)
     implementation(platform("androidx.compose:compose-bom:2024.06.00"))
+
+
+    // --- DEPENDENCIAS DE COMPOSE Y MATERIAL 3 ---
+    // ❌ ELIMINADA: Esta línea causaba el error de resolución. El contenido está en 'material3'.
+    // implementation("androidx.compose.material3:material3-experimental")
+// build.gradle (app)
+
+        // ...
+    implementation("androidx.compose.material3:material3")
+        // Asegúrate de tener también la de íconos
+    implementation("androidx.compose.material:material-icons-extended")
+    
+    implementation("androidx.compose.material3:material3-window-size-class")
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
-    implementation("androidx.compose.material:material-icons-extended:1.6.8")
-    implementation("androidx.compose.foundation:foundation:1.6.8")
 
-    // Dependencias de Navigation Compose para la navegación entre pantallas
-    implementation("androidx.navigation:navigation-compose:2.7.7")
+    // Versiones eliminadas para que usen la BOM
+    implementation("androidx.compose.material:material-icons-extended")
+    implementation("androidx.compose.foundation:foundation")
 
-    // Dependencias de ViewModel para la arquitectura MVVM
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.3")
 
-    // Dependencias para las vistas de la Actividad Principalz
-    implementation("androidx.activity:activity-compose:1.9.0")
+    // --- DEPENDENCIAS CLAVE DEL PROYECTO ---
 
-    // Retrofit y Kotlinx Serialization para red
+    // Dependencia de ThreeTenABP
+    implementation("com.jakewharton.threetenabp:threetenabp:1.4.0")
+
+    // Corrutinas (Versión 1.8.1)
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:$coroutinesVersion")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:$coroutinesVersion")
+
+    // DataStore
+    implementation("androidx.datastore:datastore-core:$dataStoreVersion")
+    implementation("androidx.datastore:datastore-preferences:$dataStoreVersion")
+
+    // Retrofit y Serialización
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
+    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
     implementation("com.jakewharton.retrofit:retrofit2-kotlinx-serialization-converter:1.0.0")
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
 
-    // Dependencias para los tests
+    // Varios
+    implementation("com.google.code.gson:gson:2.10.1")
+    implementation("io.coil-kt:coil-compose:2.4.0")
+    implementation("androidx.navigation:navigation-compose:2.7.7")
+
+    // Dependencias por defecto de Android KTX, Lifecycle y Activity
+    implementation("androidx.core:core-ktx:1.13.1")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:$lifecycleVersion")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:$lifecycleVersion")
+    implementation("androidx.activity:activity-compose:$activityComposeVersion")
+
+
+    // --- DEPENDENCIAS PARA LOS TESTS ---
     androidTestImplementation(platform("androidx.compose:compose-bom:2024.06.00"))
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     debugImplementation("androidx.compose.ui:ui-tooling")
