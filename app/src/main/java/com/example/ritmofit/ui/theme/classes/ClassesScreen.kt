@@ -1,4 +1,3 @@
-// Archivo: ClassesScreen.kt
 package com.example.ritmofit.ui.theme.classes
 
 import androidx.compose.foundation.clickable
@@ -12,17 +11,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember // ⚠️ NUEVO
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight // ⚠️ NUEVO
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.ritmofit.data.models.GymClass
-// ⚠️ ELIMINA el import de GymClassCard si no existe como archivo aparte.
-// import com.example.ritmofit.home.GymClassCard
-
-// ⚠️ NECESITAS ESTOS IMPORTS (Asegúrate de que tus dependencias de gradle estén bien configuradas para threetenbp)
 import org.threeten.bp.LocalDate
 import org.threeten.bp.format.DateTimeFormatter
 import java.util.Locale
@@ -32,6 +27,7 @@ import java.util.Locale
 fun ClassesScreen(
     onNavigateBack: () -> Unit,
     onClassClick: (GymClass) -> Unit,
+    // Nota: Debes tener una factoría definida en tu ClassesViewModel para que esto funcione.
     classesViewModel: ClassesViewModel = viewModel()
 ) {
     val classesState by classesViewModel.classesState.collectAsState()
@@ -67,14 +63,12 @@ fun ClassesScreen(
                         Text(text = "No hay clases disponibles.")
                     } else {
                         LazyColumn(
-                            modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp), // Agregué padding para mejor visualización
+                            modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
                             contentPadding = PaddingValues(vertical = 8.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             items(state.classes) { gymClass ->
-                                // 🛑 REEMPLAZO DEL COMPONENTE GymClassCard POR EL CÓDIGO ANIDADO
                                 GymClassItem(gymClass = gymClass, onClassClick = onClassClick)
-                                // 🛑 FIN REEMPLAZO
                             }
                         }
                     }
@@ -82,30 +76,34 @@ fun ClassesScreen(
                 is ClassesViewModel.ClassesUiState.Error -> {
                     Text(text = "Error: ${state.message}")
                 }
+                // Manejar un estado inicial si lo tienes
+                else -> { /* Nada */ }
             }
         }
     }
 }
 
-// 🛑 NUEVO COMPOSABLE PARA DIBUJAR LA TARJETA CON LA LÓGICA DE FECHA
 @Composable
 fun GymClassItem(gymClass: GymClass, onClassClick: (GymClass) -> Unit) {
 
-    // Lógica de Formato de Fecha (sin cambios)
+    // Lógica de Formato de Fecha
     val dateFormatter = remember {
-        DateTimeFormatter.ofPattern("dd/MM/yyyy", Locale("es", "ES"))
+        DateTimeFormatter.ofPattern("dd/MM/yyyy", Locale.getDefault())
     }
 
     val classDateFormatted = remember(gymClass.classDate) {
         val isoDate = gymClass.classDate
         if (isoDate != null) {
             try {
+                // Parseo de fecha (Asegúrate de que 'threetenbp' o 'java.time' esté en tu proyecto)
                 val date = LocalDate.parse(isoDate)
                 date.format(dateFormatter)
             } catch (e: Exception) {
+                // Si falla el parseo, muestra el día de la semana (desde schedule)
                 gymClass.schedule.day.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
             }
         } else {
+            // Si classDate es nulo, muestra el día de la semana (desde schedule)
             gymClass.schedule.day.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
         }
     }
@@ -116,8 +114,11 @@ fun GymClassItem(gymClass: GymClass, onClassClick: (GymClass) -> Unit) {
             .clickable { onClassClick(gymClass) }
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
+            // Usamos 'discipline' si está disponible, si no, usamos 'name'
+            val className = gymClass.discipline ?: gymClass.name
+
             Text(
-                text = gymClass.name,
+                text = className,
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold
             )
@@ -138,16 +139,22 @@ fun GymClassItem(gymClass: GymClass, onClassClick: (GymClass) -> Unit) {
                 text = "Cupos: ${gymClass.currentCapacity} / ${gymClass.maxCapacity}",
                 style = MaterialTheme.typography.bodyMedium
             )
-            // 🚀 CAMBIO: Ahora se accede directamente a gymClass.professor
-            Text(
-                text = "Profesor: ${gymClass.professor}",
-                style = MaterialTheme.typography.bodyMedium
-            )
-            // 🚀 CAMBIO: Ahora se accede directamente a gymClass.duration
-            Text(
-                text = "Duración: ${gymClass.duration} minutos",
-                style = MaterialTheme.typography.bodyMedium
-            )
+
+            // ✅ MANEJO SEGURO DE NULOS
+            gymClass.professor?.let { professor ->
+                Text(
+                    text = "Profesor: $professor",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+
+            // ✅ MANEJO SEGURO DE NULOS
+            gymClass.duration?.let { duration ->
+                Text(
+                    text = "Duración: $duration minutos",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
         }
     }
 }

@@ -1,3 +1,4 @@
+// Archivo: Navigation.kt (MODIFICADO Y FINAL)
 package com.example.ritmofit.utils
 
 import androidx.compose.runtime.Composable
@@ -33,7 +34,6 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.currentBackStackEntryAsState
 import com.example.ritmofit.home.HomeScreen
 import com.example.ritmofit.ui.theme.auth.LoginScreen
-import com.example.ritmofit.ui.theme.auth.OtpScreen
 import com.example.ritmofit.ui.theme.auth.AuthViewModel
 import com.example.ritmofit.ui.theme.classes.ClassesScreen
 import com.example.ritmofit.ui.theme.history.HistoryScreen
@@ -72,8 +72,7 @@ fun RitmoFitNavigation() {
             TopAppBar(
                 title = {
                     when (currentRoute) {
-                        "login" -> Text("Iniciar Sesión")
-                        "otp/{email}" -> Text("Verificación OTP")
+                        "login" -> Text("Autenticación") // Nombre unificado
                         "home" -> Text("RitmoFit")
                         "profile" -> Text("Mi Perfil")
                         "classes" -> Text("Clases")
@@ -85,7 +84,9 @@ fun RitmoFitNavigation() {
                     }
                 },
                 navigationIcon = {
-                    if (navController.previousBackStackEntry != null) {
+                    // Solo mostramos el botón de atrás si no estamos en Login o Home (tras el login)
+                    val showBackButton = navController.previousBackStackEntry != null && currentRoute != "login" && currentRoute != "home"
+                    if (showBackButton) {
                         IconButton(onClick = { navController.popBackStack() }) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Atrás")
                         }
@@ -100,24 +101,13 @@ fun RitmoFitNavigation() {
             modifier = Modifier.padding(innerPadding)
         ) {
             composable("login") {
+                // LoginScreen ahora maneja todos los flujos de autenticación internamente
                 LoginScreen(
-                    authViewModel = authViewModel,
-                    onNavigateToOtp = { email -> navController.navigate("otp/$email") }
+                    authViewModel = authViewModel
                 )
             }
 
-            composable(
-                route = "otp/{email}",
-                arguments = listOf(navArgument("email") { type = NavType.StringType })
-            ) { backStackEntry ->
-                val email = backStackEntry.arguments?.getString("email") ?: ""
-                OtpScreen(
-                    email = email,
-                    authViewModel = authViewModel,
-                    onNavigateBack = { navController.popBackStack() },
-                    onVerificationSuccess = { navController.navigate("home") }
-                )
-            }
+            // ⚠️ RUTA OTP ELIMINADA: La verificación OTP se hace en LoginScreen
 
             composable("home") {
                 val homeViewModel: HomeViewModel = viewModel(factory = HomeViewModel.Factory)
@@ -185,7 +175,7 @@ fun RitmoFitNavigation() {
                 val classId = backStackEntry.arguments?.getString("classId") ?: ""
                 ClassDetailScreen(
                     classId = classId,
-                    onReservationSuccess = { navController.popBackStack() }, // <-- onNavigateBack fue eliminado
+                    onReservationSuccess = { navController.popBackStack() },
                     classDetailViewModel = classDetailViewModel,
                     reservationsViewModel = reservationsViewModel,
                     paddingValues = innerPadding

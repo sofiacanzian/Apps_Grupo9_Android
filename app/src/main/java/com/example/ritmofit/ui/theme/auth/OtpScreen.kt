@@ -1,4 +1,4 @@
-// Archivo: OtpScreen.kt (Corregido)
+// Archivo: OtpScreen.kt (CORREGIDO)
 package com.example.ritmofit.ui.theme.auth
 
 import androidx.compose.foundation.layout.*
@@ -16,20 +16,25 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.lifecycle.viewmodel.compose.viewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OtpScreen(
     email: String,
-    authViewModel: AuthViewModel,
+    // AÑADIDO: Recibimos la acción siguiente para el ViewModel
+    nextAction: String,
+    authViewModel: AuthViewModel = viewModel(),
     onNavigateBack: () -> Unit,
     onVerificationSuccess: () -> Unit
 ) {
+    // 1. Coleccionar los estados del ViewModel
     val otp by authViewModel.otp.collectAsState()
     val isLoading by authViewModel.isLoading.collectAsState()
     val isAuthenticated by authViewModel.isAuthenticated.collectAsState()
     val errorMessage by authViewModel.errorMessage.collectAsState()
 
+    // 2. Efecto para navegar al éxito
     LaunchedEffect(isAuthenticated) {
         if (isAuthenticated) {
             onVerificationSuccess()
@@ -60,13 +65,16 @@ fun OtpScreen(
             Spacer(modifier = Modifier.height(16.dp))
             OutlinedTextField(
                 value = otp,
+                // onValueChange llama a setOtp en el ViewModel, actualizando el StateFlow
                 onValueChange = { authViewModel.setOtp(it) },
-                label = { Text("Código OTP") },
-                modifier = Modifier.fillMaxWidth()
+                label = { Text("Código OTP (6 dígitos)") },
+                modifier = Modifier.fillMaxWidth(),
+                isError = errorMessage != null
             )
             Spacer(modifier = Modifier.height(16.dp))
             Button(
-                onClick = { authViewModel.confirmOtp(email) },
+                // CORREGIDO: Pasar 'nextAction' al ViewModel
+                onClick = { authViewModel.confirmOtp(email, nextAction) },
                 enabled = !isLoading && otp.length == 6,
                 modifier = Modifier.fillMaxWidth()
             ) {

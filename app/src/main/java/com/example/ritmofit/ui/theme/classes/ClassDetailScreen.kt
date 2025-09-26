@@ -1,4 +1,4 @@
-// Archivo: ClassDetailScreen.kt
+// Archivo: ClassDetailScreen.kt (Corregido)
 package com.example.ritmofit.ui.theme.classes
 
 import androidx.compose.foundation.layout.*
@@ -22,9 +22,8 @@ import java.util.Locale
 @Composable
 fun ClassDetailScreen(
     classId: String,
-    // El callback es importante para que la vista anterior se actualice
     onReservationSuccess: () -> Unit,
-    classDetailViewModel: ClassDetailViewModel = viewModel(factory = ClassDetailViewModel.Factory), // Asegúrate de usar el factory aquí
+    classDetailViewModel: ClassDetailViewModel = viewModel(factory = ClassDetailViewModel.Factory),
     reservationsViewModel: ReservationsViewModel = viewModel(),
     paddingValues: PaddingValues
 ) {
@@ -35,26 +34,30 @@ fun ClassDetailScreen(
         classDetailViewModel.fetchClassDetails(classId)
     }
 
-    // CAMBIO CLAVE: Formato de fecha para detalle (dd/MM/yyyy)
+    // El error 'Unresolved reference 'classDate'' se resuelve si agregas el campo a GymClass.
+
+    // Formato de fecha para detalle (dd/MM/yyyy)
     val dateFormatter = remember {
-        // Usamos "dd/MM/yyyy" para el formato deseado
-        DateTimeFormatter.ofPattern("dd/MM/yyyy", Locale("es", "ES"))
+        // Usamos el locale "es" para el formato deseado
+        // Importante: No es necesario usar Locale("es", "ES") en DateTimeFormatter
+        DateTimeFormatter.ofPattern("dd/MM/yyyy", Locale.getDefault())
     }
 
     // Lógica para parsear y formatear la fecha real
     val classDateText = remember(gymClass?.classDate) {
-        val isoDate = gymClass?.classDate
+        val isoDate = gymClass?.classDate // <-- Ahora 'classDate' es reconocido
         if (isoDate != null) {
             try {
-                // El backend devuelve YYYY-MM-DD. Parseamos y formateamos.
+                // El backend devuelve YYYY-MM-DD. Parseamos y formateamos con ThreetenABP.
                 val date = LocalDate.parse(isoDate)
                 "Fecha: ${date.format(dateFormatter)}"
             } catch (e: Exception) {
-                // En caso de error de parseo, mostramos el día de la semana original como fallback
-                "Fecha: ${gymClass?.schedule?.day?.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() } ?: "N/D"}"
+                // Fallback a solo mostrar el día de la semana si la fecha no parsea
+                "Día: ${gymClass?.schedule?.day?.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() } ?: "N/D"}"
             }
         } else {
-            "Fecha: N/D"
+            // Si el campo classDate es null, mostramos el día
+            "Día: ${gymClass?.schedule?.day?.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() } ?: "N/D"}"
         }
     }
 
@@ -91,13 +94,11 @@ fun ClassDetailScreen(
                     modifier = Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // Muestra la fecha real calculada (dd/MM/yyyy)
+                    // Muestra la fecha real calculada (dd/MM/yyyy) o el día
                     Text(classDateText, fontWeight = FontWeight.SemiBold)
 
                     Text("Horario: ${gymClass!!.schedule.startTime} - ${gymClass!!.schedule.endTime}")
                     Text("Ubicación: ${gymClass!!.location.name}")
-
-                    // Aseguramos que la capacidad refleje el estado actual de gymClass
                     Text("Cupos: ${gymClass!!.currentCapacity} / ${gymClass!!.maxCapacity}")
                 }
             }
@@ -107,10 +108,10 @@ fun ClassDetailScreen(
                     // 1. Crear la reserva
                     reservationsViewModel.createReservation(gymClass!!.id)
 
-                    // 2. 🚀 LLAMADA CORREGIDA: Usamos la función del ViewModel para actualizar el cupo.
+                    // 2. Usar la función del ViewModel para actualizar el cupo localmente.
                     classDetailViewModel.incrementCapacity()
 
-                    // 3. Notificar éxito
+                    // 3. Notificar éxito (esto suele disparar una navegación o un toast/snackbar)
                     onReservationSuccess()
                 },
                 modifier = Modifier.fillMaxWidth(),

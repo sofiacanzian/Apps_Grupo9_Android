@@ -1,10 +1,13 @@
+// Archivo: build.gradle.kts(app)
 val compose_version = "1.5.4"
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
-    // Corregimos la versión del plugin de serialización para que coincida con la del proyecto
-    id("org.jetbrains.kotlin.plugin.serialization") version "1.8.21"
+
+    // CORRECCIÓN: Quitamos la versión explícita aquí para que tome la del archivo root (1.9.0)
+    // Esto es necesario ya que el plugin se declara en el archivo raíz.
+    id("org.jetbrains.kotlin.plugin.serialization")
 }
 
 android {
@@ -57,8 +60,8 @@ android {
 }
 
 dependencies {
+    // Librerías ya existentes
     implementation("com.jakewharton.threetenabp:threetenabp:1.4.6")
-
     implementation("com.google.code.gson:gson:2.10.1")
     implementation("io.coil-kt:coil-compose:2.4.0")
     implementation("com.squareup.retrofit2:converter-gson:2.9.0")

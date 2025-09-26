@@ -1,6 +1,5 @@
 package com.example.ritmofit.home
 
-import android.icu.text.SimpleDateFormat
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -10,12 +9,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.ritmofit.data.models.GymClass
@@ -25,14 +21,10 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.FitnessCenter
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Text
-import androidx.compose.ui.res.stringResource
-import com.example.ritmofit.R
-import java.util.Date
+import androidx.compose.ui.text.font.FontWeight
+import org.threeten.bp.LocalDate
+import org.threeten.bp.format.DateTimeFormatter
 import java.util.Locale
-import java.util.Calendar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -43,7 +35,8 @@ fun HomeScreen(
     onNavigateToHistory: () -> Unit,
     onNavigateToClasses: () -> Unit,
     onClassClick: (GymClass) -> Unit,
-    homeViewModel: HomeViewModel = viewModel(factory = HomeViewModel.Factory)
+    // Nota: Debes tener una factoría definida en tu HomeViewModel
+    homeViewModel: HomeViewModel = viewModel()
 ) {
     val classesState by homeViewModel.classesState.collectAsState()
     val filtersState by homeViewModel.filtersState.collectAsState()
@@ -99,8 +92,8 @@ fun HomeScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // Sección de filtros
-            FilterSection(homeViewModel, filtersState)
+            // Sección de filtros (descomentar cuando esté implementada)
+            // FilterSection(homeViewModel, filtersState)
 
             // Contenido principal (lista de clases o estado de carga/error)
             Box(
@@ -123,10 +116,7 @@ fun HomeScreen(
                                 verticalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
                                 items(state.classes) { gymClass ->
-                                    GymClassCard(
-                                        gymClass = gymClass,
-                                        onClassClick = { onClassClick(gymClass) }
-                                    )
+                                    GymClassItemHome(gymClass = gymClass, onClassClick = onClassClick)
                                 }
                             }
                         }
@@ -134,185 +124,83 @@ fun HomeScreen(
                     is HomeViewModel.ClassesUiState.Error -> {
                         Text(text = "Error: ${state.message}")
                     }
+                    else -> { /* Estado inicial/vacío */ }
                 }
             }
         }
     }
 }
 
-
-@OptIn(ExperimentalMaterial3Api::class)
+// Componente para la lista de clases en Home (similar al de ClassesScreen)
 @Composable
-fun FilterSection(
-    homeViewModel: HomeViewModel,
-    filtersState: HomeViewModel.FilterUiState
-) {
-    var expandedLocation by remember { mutableStateOf(false) }
-    var expandedDiscipline by remember { mutableStateOf(false) }
-    val context = LocalContext.current
+fun GymClassItemHome(gymClass: GymClass, onClassClick: (GymClass) -> Unit) {
 
-    Row(
+    val dateFormatter = remember {
+        DateTimeFormatter.ofPattern("dd/MM/yyyy", Locale.getDefault())
+    }
+
+    // Lógica robusta para mostrar la fecha real o el día de la semana
+    val classDateFormatted = remember(gymClass.classDate) {
+        val isoDate = gymClass.classDate
+        if (isoDate != null) {
+            try {
+                val date = LocalDate.parse(isoDate)
+                date.format(dateFormatter)
+            } catch (e: Exception) {
+                // Si falla el parseo, muestra el día de la semana
+                gymClass.schedule.day.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
+            }
+        } else {
+            // Si classDate es nulo, muestra el día de la semana
+            gymClass.schedule.day.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
+        }
+    }
+
+    Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(16.dp),
-        horizontalArrangement = Arrangement.SpaceAround,
-        verticalAlignment = Alignment.CenterVertically
+            .clickable { onClassClick(gymClass) }
     ) {
-        when (filtersState) {
-            is HomeViewModel.FilterUiState.Loading -> {
-                CircularProgressIndicator()
-            }
-            is HomeViewModel.FilterUiState.Success -> {
-                // Filtro de Sede
-                Box {
-                    TextButton(onClick = { expandedLocation = true }) {
-                        Text(text = homeViewModel.selectedLocation ?: "Sede")
-                    }
-                    DropdownMenu(
-                        expanded = expandedLocation,
-                        onDismissRequest = { expandedLocation = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("Todas") },
-                            onClick = {
-                                homeViewModel.selectedLocation = null
-                                expandedLocation = false
-                                homeViewModel.fetchClasses()
-                            }
-                        )
-                        filtersState.filters.locations.forEach { location ->
-                            DropdownMenuItem(
-                                text = { Text(location) },
-                                onClick = {
-                                    homeViewModel.selectedLocation = location
-                                    expandedLocation = false
-                                    homeViewModel.fetchClasses()
-                                }
-                            )
-                        }
-                    }
-                }
+        Column(modifier = Modifier.padding(16.dp)) {
+            // Usamos 'discipline' si está disponible, si no, usamos 'name' (aunque el backend ya igualó discipline=name)
+            val className = gymClass.discipline ?: gymClass.name
 
-                // Filtro de Disciplina
-                Box {
-                    TextButton(onClick = { expandedDiscipline = true }) {
-                        Text(text = homeViewModel.selectedDiscipline ?: "Disciplina")
-                    }
-                    DropdownMenu(
-                        expanded = expandedDiscipline,
-                        onDismissRequest = { expandedDiscipline = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("Todas") },
-                            onClick = {
-                                homeViewModel.selectedDiscipline = null
-                                expandedDiscipline = false
-                                homeViewModel.fetchClasses()
-                            }
-                        )
-                        filtersState.filters.disciplines.forEach { discipline ->
-                            DropdownMenuItem(
-                                text = { Text(discipline) },
-                                onClick = {
-                                    homeViewModel.selectedDiscipline = discipline
-                                    expandedDiscipline = false
-                                    homeViewModel.fetchClasses()
-                                }
-                            )
-                        }
-                    }
-                }
-
-                // Filtro de Fecha (DatePicker)
-                var showDatePicker by remember { mutableStateOf(false) }
-                val datePickerState = rememberDatePickerState(
-                    initialSelectedDateMillis = System.currentTimeMillis()
-                )
-
-                TextButton(onClick = { showDatePicker = true }) {
-                    val dateText = homeViewModel.selectedDate?.let { date ->
-                        val formatter = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
-                        formatter.format(date)
-                    } ?: "Fecha"
-                    Text(text = dateText)
-                }
-
-                if (showDatePicker) {
-                    DatePickerDialog(
-                        onDismissRequest = { showDatePicker = false },
-                        confirmButton = {
-                            TextButton(
-                                onClick = {
-                                    datePickerState.selectedDateMillis?.let { millis ->
-                                        homeViewModel.selectedDate = Date(millis)
-                                    }
-                                    showDatePicker = false
-                                    homeViewModel.fetchClasses()
-                                }
-                            ) {
-                                Text("OK")
-                            }
-                        },
-                        dismissButton = {
-                            TextButton(onClick = { showDatePicker = false }) {
-                                Text("Cancelar")
-                            }
-                        }
-                    ) {
-                        DatePicker(state = datePickerState)
-                    }
-                }
-            }
-            is HomeViewModel.FilterUiState.Error -> {
-                Text(text = "Error al cargar filtros: ${filtersState.message}")
-            }
-        }
-    }
-}
-
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun GymClassCard(
-    gymClass: GymClass,
-    onClassClick: (GymClass) -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-        onClick = { onClassClick(gymClass) }
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
             Text(
-                text = gymClass.name, // <-- CORREGIDO: usa 'name' en lugar de 'className'
-                style = MaterialTheme.typography.titleLarge
+                text = className,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
             )
+            Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "Horario: ${gymClass.schedule.day}, ${gymClass.schedule.startTime} - ${gymClass.schedule.endTime}",
+                text = "Horario: ${classDateFormatted}, ${gymClass.schedule.startTime} - ${gymClass.schedule.endTime}",
                 style = MaterialTheme.typography.bodyMedium
             )
             Text(
                 text = "Ubicación: ${gymClass.location.name}",
                 style = MaterialTheme.typography.bodyMedium
             )
+
+            // ✅ MANEJO SEGURO DE NULOS
             Text(
-                text = "Cupos: ${gymClass.currentCapacity} / ${gymClass.maxCapacity}", // <-- CORREGIDO: usa 'currentCapacity'
+                text = "Profesor: ${gymClass.professor ?: "N/A"}",
                 style = MaterialTheme.typography.bodyMedium
             )
-            gymClass.professor?.let { // <-- CORREGIDO: usa 'professor'
-                Text(
-                    text = "Profesor: $it",
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
-            gymClass.duration?.let {
-                Text(
-                    text = "Duración: $it minutos",
-                    style = MaterialTheme.typography.bodySmall
-                )
+
+            // ✅ MANEJO SEGURO DE NULOS
+            Text(
+                text = "Duración: ${gymClass.duration?.let { "$it minutos" } ?: "N/A"}",
+                style = MaterialTheme.typography.bodyMedium
+            )
+
+            Text(
+                text = "Cupos: ${gymClass.currentCapacity} / ${gymClass.maxCapacity}",
+                style = MaterialTheme.typography.bodyMedium
+            )
+
+            // Ejemplo de botón de reserva (o estado)
+            Spacer(modifier = Modifier.height(8.dp))
+            Button(onClick = { /* Lógica de reserva */ }) {
+                Text("Reservar")
             }
         }
     }
