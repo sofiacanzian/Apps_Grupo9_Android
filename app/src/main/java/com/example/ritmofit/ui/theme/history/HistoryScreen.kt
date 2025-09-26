@@ -22,12 +22,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.ritmofit.data.models.GymClass
 import com.example.ritmofit.data.models.Reservation
-// Importamos correctamente las clases de org.threeten.bp para compatibilidad
 import org.threeten.bp.Instant
 import org.threeten.bp.LocalDate
 import org.threeten.bp.ZoneId
 import org.threeten.bp.format.DateTimeFormatter
-// ----------------------------------------------------------------------
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -44,7 +42,6 @@ fun HistoryScreen(
     var showDatePicker by remember { mutableStateOf(false) }
     var pickingStartDate by remember { mutableStateOf(true) }
 
-    // Usamos el formatter de org.threeten.bp
     val dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy", Locale.getDefault())
 
     LaunchedEffect(key1 = Unit) {
@@ -66,7 +63,6 @@ fun HistoryScreen(
         ) {
             // Campo de Fecha de Inicio
             OutlinedTextField(
-                // Usamos org.threeten.bp.LocalDate.format
                 value = startDate?.format(dateFormatter) ?: "Fecha Inicio",
                 onValueChange = {},
                 readOnly = true,
@@ -84,7 +80,6 @@ fun HistoryScreen(
 
             // Campo de Fecha de Fin
             OutlinedTextField(
-                // Usamos org.threeten.bp.LocalDate.format
                 value = endDate?.format(dateFormatter) ?: "Fecha Fin",
                 onValueChange = {},
                 readOnly = true,
@@ -127,7 +122,6 @@ fun HistoryScreen(
 
         // --- Diálogo de Selección de Fecha (DatePickerDialog) ---
         if (showDatePicker) {
-            // Usamos org.threeten.bp.ZoneId.systemDefault() y org.threeten.bp.Instant
             val datePickerState = rememberDatePickerState(
                 initialSelectedDateMillis = (if (pickingStartDate) startDate else endDate)?.atStartOfDay(ZoneId.systemDefault())?.toInstant()?.toEpochMilli()
             )
@@ -138,7 +132,6 @@ fun HistoryScreen(
                         onClick = {
                             val selectedDateMillis = datePickerState.selectedDateMillis
                             if (selectedDateMillis != null) {
-                                // Usamos org.threeten.bp.Instant y org.threeten.bp.ZoneId
                                 val selectedDate = Instant.ofEpochMilli(selectedDateMillis).atZone(ZoneId.systemDefault()).toLocalDate()
 
                                 if (pickingStartDate) {
@@ -170,10 +163,12 @@ fun HistoryScreen(
                 } else {
                     LazyColumn {
                         items(state.reservations) { reservation ->
-                            // Usa el GymClass anidado en la reserva
+                            // ✅ CORRECCIÓN 1: Llama a onClassClick solo si classId no es nulo
                             HistoryItemCard(
-                                reservation = reservation, // Pasamos el objeto Reservation completo
-                                onClassClick = { onClassClick(reservation.classId) }
+                                reservation = reservation,
+                                onClassClick = {
+                                    reservation.classId?.let(onClassClick)
+                                }
                             )
                         }
                     }
@@ -191,18 +186,18 @@ fun HistoryItemCard(
     reservation: Reservation,
     onClassClick: () -> Unit
 ) {
+    // Es nullable (GymClass?)
     val gymClass = reservation.classId
 
-    // Formato de fecha para mostrar la fecha real de la clase (classDate)
     val dateFormatter = remember {
-        // CAMBIO CLAVE: Formato dd/MM/yyyy
         DateTimeFormatter.ofPattern("dd/MM/yyyy", Locale("es", "ES"))
     }
 
-    // Lógica para parsear la fecha real de la clase (classDate del objeto Reservation)
     val classDateText = remember(reservation.classDate) {
-        val isoDate = reservation.classDate // Esta fecha ya viene del esquema Reservation
-        if (isoDate != null) {
+        val isoDate = reservation.classDate
+        if (isoDate.isNullOrBlank()) {
+            "Fecha no disponible"
+        } else {
             try {
                 // Parseamos el string de fecha (ej: "2025-09-26T10:00:00.000Z")
                 val instant = Instant.parse(isoDate)
@@ -211,8 +206,6 @@ fun HistoryItemCard(
             } catch (e: Exception) {
                 "Fecha no disponible"
             }
-        } else {
-            "Fecha no disponible"
         }
     }
 
@@ -220,33 +213,48 @@ fun HistoryItemCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp)
-            .clickable { onClassClick() },
+            // ✅ CORRECCIÓN 2: Hacemos el card clickable solo si la clase está disponible
+            .clickable(enabled = gymClass != null) { onClassClick() },
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant
         )
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = gymClass.className,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
-            )
-            Spacer(modifier = Modifier.height(4.dp))
+            // ✅ CORRECCIÓN 3: Solo accedemos a las propiedades de GymClass si no es nulo
+            if (gymClass != null) {
+                Text(
+                    // ✅ CORRECCIÓN 4: Usamos 'name' en lugar de 'className'
+                    text = gymClass.className,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(4.dp))
 
-            // Muestra la fecha real de la clase (dd/MM/yyyy)
+                Text(
+                    text = "Horario: ${gymClass.schedule.startTime} - ${gymClass.schedule.endTime}",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Text(
+                    text = "Ubicación: ${gymClass.location.name}",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            } else {
+                // Alternativa si la clase es nula (ej. fue eliminada)
+                Text(
+                    text = "Clase Eliminada/No Disponible",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.error
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+            }
+
+            // Muestra la fecha real de la clase (classDate)
             Text(
                 text = "Fecha: $classDateText",
                 style = MaterialTheme.typography.bodyMedium
             )
 
-            Text(
-                text = "Horario: ${gymClass.schedule.startTime} - ${gymClass.schedule.endTime}",
-                style = MaterialTheme.typography.bodyMedium
-            )
-            Text(
-                text = "Ubicación: ${gymClass.location.name}",
-                style = MaterialTheme.typography.bodyMedium
-            )
             // Indicador de estado para el historial
             Text(
                 text = "Estado: ${reservation.status.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }}",

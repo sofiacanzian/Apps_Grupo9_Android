@@ -1,4 +1,3 @@
-// Archivo: com/example/ritmofit/data/models/GymClass.kt
 package com.example.ritmofit.data.models
 
 import kotlinx.serialization.SerialName
@@ -6,23 +5,29 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class GymClass(
-    // ESTO ES CORRECTO: Mapea 'id' del JSON a '_id' en Kotlin,
-    // preservando '_id' para compatibilidad con otros archivos.
+    // 🔑 Campo CRÍTICO 1: Mapea 'id' del JSON (el _id de Mongo)
     @SerialName("id")
     val _id: String,
 
-    // ESTO ES CORRECTO: Mapea 'name' del JSON a 'className' en Kotlin.
+    // Mapea 'name' del JSON a 'className'
     @SerialName("name")
     val className: String,
 
-    val description: String,
+    // Convertido a nullable para ser robusto
+    val description: String?,
     val maxCapacity: Int,
     val currentCapacity: Int,
     val schedule: Schedule,
     val location: Location,
+
+    // 🔑 Campo CRÍTICO 2: La disciplina es obligatoria
     val discipline: String,
-    val professor: String,
-    val duration: Int,
+
+    // 💡 Modificados a Nullable (String? / Int?) para aceptar 'null' del Backend
+    val professor: String?,
+    val duration: Int?,
+
+    // 🔑 Campo CRÍTICO 3: La fecha de la clase (obligatorio para el listado y reservas)
     val classDate: String
 )
 
@@ -37,6 +42,3 @@ data class Schedule(
 data class Location(
     val name: String
 )
-
-// NOTA: Si tu backend envía "_id" en lugar de "id", usa @SerialName("_id")
-// Sin embargo, basándome en tu logcat, usé "id" y "name" para el mapeo.

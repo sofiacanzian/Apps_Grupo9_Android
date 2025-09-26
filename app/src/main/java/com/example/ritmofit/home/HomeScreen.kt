@@ -19,7 +19,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue // 🔑 CORRECCIÓN 1: AGREGADA LA IMPORTACIÓN SETVALUE
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 
@@ -36,7 +36,7 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.FitnessCenter
-import androidx.compose.material.icons.filled.CalendarMonth // ÚNICA INSTANCIA
+import androidx.compose.material.icons.filled.CalendarMonth
 
 // Imports de Datos y Modelos
 import com.example.ritmofit.data.models.GymClass
@@ -64,6 +64,11 @@ fun HomeScreen(
     val classesState by homeViewModel.classesState.collectAsState()
     val filtersState by homeViewModel.filtersState.collectAsState()
 
+    // 🔑 NUEVO: Estado de la reserva y estado del Snackbar
+    val reservationState by homeViewModel.reservationState.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+
     // Leer los filtros directamente del ViewModel (sin flow, son mutableStateOf)
     val selectedLocation = homeViewModel.selectedLocation
     val selectedDiscipline = homeViewModel.selectedDiscipline
@@ -75,7 +80,30 @@ fun HomeScreen(
         homeViewModel.fetchClasses()
     }
 
+    // 🔑 NUEVO: Efecto para mostrar el Snackbar cuando el estado de la reserva cambia
+    LaunchedEffect(reservationState) {
+        when (val state = reservationState) {
+            is HomeViewModel.ReservationUiState.Success -> {
+                snackbarHostState.showSnackbar(
+                    message = "Reserva creada con éxito. ¡Clase actualizada!",
+                    duration = SnackbarDuration.Short
+                )
+                homeViewModel.resetReservationState()
+            }
+            is HomeViewModel.ReservationUiState.Error -> {
+                snackbarHostState.showSnackbar(
+                    message = state.message, // Esto debe mostrar: "Ya tienes una reserva activa..."
+                    duration = SnackbarDuration.Long
+                )
+                homeViewModel.resetReservationState()
+            }
+            else -> {}
+        }
+    }
+
+
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) }, // 🔑 Añadir SnackbarHost
         bottomBar = {
             NavigationBar {
                 NavigationBarItem(
@@ -162,7 +190,12 @@ fun HomeScreen(
                                 verticalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
                                 items(state.classes) { gymClass ->
-                                    GymClassItemHome(gymClass = gymClass, onClassClick = onClassClick)
+                                    // 🔑 PASAR EL VIEWMODEL A GymClassItemHome
+                                    GymClassItemHome(
+                                        gymClass = gymClass,
+                                        onClassClick = onClassClick,
+                                        homeViewModel = homeViewModel
+                                    )
                                 }
                             }
                         }
@@ -181,6 +214,7 @@ fun HomeScreen(
 // --- COMPONENTES DE FILTRO ---
 // -----------------------------------------------------------------------------
 
+// ... (FilterSection, FilterDropdown, FilterDateButton sin cambios)
 @Composable
 fun FilterSection(
     filterOptions: FilterResponse,
@@ -259,7 +293,7 @@ fun FilterDropdown(
     onValueSelected: (String?) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var expanded by remember { mutableStateOf(false) } // Línea 261 (Corregida por la importación setValue)
+    var expanded by remember { mutableStateOf(false) }
 
     ExposedDropdownMenuBox(
         expanded = expanded,
@@ -312,7 +346,7 @@ fun FilterDateButton(
     onDateSelected: (Date?) -> Unit,
     onClear: () -> Unit
 ) {
-    var showDatePicker by remember { mutableStateOf(false) } // Línea 314 (Corregida por la importación setValue)
+    var showDatePicker by remember { mutableStateOf(false) }
 
     // Formateador para mostrar la fecha al usuario
     val displayFormatter = remember { SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()) }
@@ -342,7 +376,7 @@ fun FilterDateButton(
 
 
     if (showDatePicker) {
-        // 🔑 CORRECCIÓN 2: Eliminamos la referencia a 'initialSelectedDateMillis' en la inicialización
+        // CORRECCIÓN: Usamos solo la hora en milisegundos de la fecha
         val initialMillis = currentDate?.time
 
         val datePickerState = rememberDatePickerState(
@@ -379,10 +413,14 @@ fun FilterDateButton(
 }
 
 
-// --- Componente de Clase (Sin cambios) ---
+// --- Componente de Clase (Modificado para reserva) ---
 
 @Composable
-fun GymClassItemHome(gymClass: GymClass, onClassClick: (GymClass) -> Unit) {
+fun GymClassItemHome(
+    gymClass: GymClass,
+    onClassClick: (GymClass) -> Unit,
+    homeViewModel: HomeViewModel // 🔑 NUEVO: Recibe el ViewModel
+) {
 
     val dateFormatter = remember {
         DateTimeFormatter.ofPattern("dd/MM/yyyy", Locale.getDefault())
@@ -404,6 +442,10 @@ fun GymClassItemHome(gymClass: GymClass, onClassClick: (GymClass) -> Unit) {
             gymClass.schedule.day.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
         }
     }
+
+    // Calcular si la clase está llena
+    val isFull = gymClass.currentCapacity >= gymClass.maxCapacity
+    val buttonText = if (isFull) "Cupo Lleno" else "Reservar"
 
     Card(
         modifier = Modifier
@@ -448,8 +490,11 @@ fun GymClassItemHome(gymClass: GymClass, onClassClick: (GymClass) -> Unit) {
             )
 
             Spacer(modifier = Modifier.height(8.dp))
-            Button(onClick = { /* Lógica de reserva */ }) {
-                Text("Reservar")
+            Button(
+                onClick = { homeViewModel.createReservation(gymClass) }, // 🔑 LLAMADA A LA LÓGICA DE RESERVA
+                enabled = !isFull // 🔑 DESHABILITAR SI NO HAY CUPO
+            ) {
+                Text(buttonText)
             }
         }
     }

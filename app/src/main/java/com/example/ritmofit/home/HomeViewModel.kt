@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import org.json.JSONObject // Importación necesaria para mejor manejo de errores
 import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -30,7 +31,7 @@ class HomeViewModel(
     private val _reservationState = MutableStateFlow<ReservationUiState>(ReservationUiState.Idle)
     val reservationState: StateFlow<ReservationUiState> = _reservationState.asStateFlow()
 
-    // 🔑 Estados de los filtros
+    // Estados de los filtros
     var selectedLocation by mutableStateOf<String?>(null)
     var selectedDiscipline by mutableStateOf<String?>(null)
     var selectedDate by mutableStateOf<Date?>(null)
@@ -57,7 +58,7 @@ class HomeViewModel(
         data class Error(val message: String) : FilterUiState()
     }
 
-    // 🔑 Funciones para establecer los filtros y recargar las clases
+    // Funciones para establecer los filtros y recargar las clases
     fun setLocationFilter(location: String?) {
         selectedLocation = location
         fetchClasses()
@@ -78,6 +79,11 @@ class HomeViewModel(
         selectedDiscipline = null
         selectedDate = null
         fetchClasses()
+    }
+
+    // Función para resetear el estado de la reserva
+    fun resetReservationState() {
+        _reservationState.value = ReservationUiState.Idle
     }
 
 
@@ -142,8 +148,19 @@ class HomeViewModel(
 
                 if (response.isSuccessful) {
                     _reservationState.value = ReservationUiState.Success
+                    // CLAVE: Recargar las clases para que el cupo se actualice en la UI
+                    fetchClasses()
                 } else {
-                    _reservationState.value = ReservationUiState.Error("Error al crear la reserva: ${response.code()}")
+                    // ✅ Lógica correcta para capturar el error 400 (Bad Request)
+                    val errorBody = response.errorBody()?.string() ?: "Error desconocido"
+                    val errorMessage = try {
+                        val json = JSONObject(errorBody)
+                        json.getString("message")
+                    } catch (e: Exception) {
+                        // Fallback si el cuerpo no es JSON con "message"
+                        "Error al crear la reserva: ${response.code()}"
+                    }
+                    _reservationState.value = ReservationUiState.Error(errorMessage)
                 }
             } catch (e: IllegalStateException) {
                 _reservationState.value = ReservationUiState.Error(e.message ?: "Error de autenticación.")

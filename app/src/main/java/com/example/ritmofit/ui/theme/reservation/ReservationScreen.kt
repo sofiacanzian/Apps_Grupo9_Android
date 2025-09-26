@@ -27,6 +27,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.ritmofit.data.models.GymClass
@@ -35,20 +36,19 @@ import com.example.ritmofit.data.models.GymClass
 fun ReservationsScreen(
     onClassClick: (GymClass) -> Unit,
     reservationsViewModel: ReservationsViewModel = viewModel(),
-    // Parámetro para recibir el padding del Scaffold superior
     paddingValues: PaddingValues
 ) {
     val reservationsState by reservationsViewModel.reservationsState.collectAsState()
 
     LaunchedEffect(Unit) {
+        // Asegura que la lista de reservas se cargue al iniciar
         reservationsViewModel.fetchUserReservations()
     }
 
-    // El Scaffold y el TopAppBar fueron eliminados de aquí
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(paddingValues), // <-- Aplica el padding del Scaffold superior aquí
+            .padding(paddingValues),
         contentAlignment = Alignment.Center
     ) {
         when (val state = reservationsState) {
@@ -66,6 +66,11 @@ fun ReservationsScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         items(state.reservations) { reservation ->
+
+                            val gymClass = reservation.classId
+                            // Hacemos el Card clickable solo si la clase no es nula
+                            val isClickable = gymClass != null
+
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
                                 elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
@@ -73,18 +78,32 @@ fun ReservationsScreen(
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .clickable { onClassClick(reservation.classId) }
+                                        // ✅ Llama a onClassClick solo si classId no es nulo
+                                        .clickable(enabled = isClickable) { gymClass?.let(onClassClick) }
                                         .padding(16.dp),
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Column {
-                                        Text(reservation.classId.className, style = MaterialTheme.typography.titleMedium)
+                                        if (gymClass != null) {
+                                            // ✅ CORRECCIÓN: Usamos 'name' en lugar de 'className'
+                                            Text(gymClass.className, style = MaterialTheme.typography.titleMedium)
+                                            Text("Horario: ${gymClass.schedule.startTime}")
+                                        } else {
+                                            Text(
+                                                text = "Clase Eliminada/No Disponible",
+                                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                                color = MaterialTheme.colorScheme.error
+                                            )
+                                            Text("Horario: Desconocido")
+                                        }
                                         Text("Estado: ${reservation.status}")
-                                        Text("Horario: ${reservation.classId.schedule.startTime}")
                                     }
                                     IconButton(
-                                        onClick = { reservationsViewModel.cancelReservation(reservation.id) }
+                                        onClick = {
+                                            // Llama a la función de cancelación del ViewModel
+                                            reservationsViewModel.cancelReservation(reservation.id)
+                                        }
                                     ) {
                                         Icon(Icons.Default.Delete, contentDescription = "Cancelar reserva", tint = MaterialTheme.colorScheme.error)
                                     }
