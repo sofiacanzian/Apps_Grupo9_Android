@@ -11,22 +11,89 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
+import androidx.compose.ui.platform.LocalContext // Importado para Biometría
+import androidx.biometric.BiometricManager // Importado para Biometría
+import androidx.biometric.BiometricPrompt // Importado para Biometría
+import androidx.fragment.app.FragmentActivity // Importado para Biometría
+import android.content.Context
+import java.util.concurrent.Executor
+import java.util.concurrent.Executors
+import androidx.compose.material.icons.Icons // Importado para el ícono
+import androidx.compose.material.icons.filled.Fingerprint // Importado para el ícono
 
-// Definimos los estados de la interfaz de autenticación
+
+// ====================================================================
+// FUNCIÓN DE UTILIDAD PARA LA BIOMETRÍA (Va fuera del Composable LoginScreen)
+// ====================================================================
+
+fun showBiometricPrompt(
+    context: Context,
+    onSuccess: () -> Unit,
+    onError: (errString: CharSequence) -> Unit
+) {
+    // Es necesario que el contexto sea una FragmentActivity para el BiometricPrompt
+    val activity = context as? FragmentActivity
+    if (activity == null) {
+        onError("Error: La Activity no soporta FragmentActivity.")
+        return
+    }
+
+    val executor: Executor = Executors.newSingleThreadExecutor()
+
+    val callback = object : BiometricPrompt.AuthenticationCallback() {
+        override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+            super.onAuthenticationError(errorCode, errString)
+            // Ignorar cancelación del usuario o botón negativo
+            if (errorCode != BiometricPrompt.ERROR_USER_CANCELED && errorCode != BiometricPrompt.ERROR_NEGATIVE_BUTTON) {
+                onError(errString)
+            }
+        }
+
+        override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+            super.onAuthenticationSucceeded(result)
+            onSuccess() // ¡Éxito!
+        }
+
+        override fun onAuthenticationFailed() {
+            super.onAuthenticationFailed()
+            // El diálogo del sistema gestiona el reintento por fallo de lectura
+        }
+    }
+
+    val biometricPrompt = BiometricPrompt(activity, executor, callback)
+
+    val promptInfo = BiometricPrompt.PromptInfo.Builder()
+        .setTitle("Acceso a RitmoFit")
+        .setSubtitle("Autentícate con tu huella dactilar")
+        .setNegativeButtonText("Usar Contraseña")
+        .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG)
+        .build()
+
+    biometricPrompt.authenticate(promptInfo)
+}
+
+
+// ====================================================================
+// ESTADOS DE AUTENTICACIÓN
+// ====================================================================
+
 sealed class AuthState {
     object Login : AuthState()
     object Register : AuthState()
     object RequestPasswordReset : AuthState()
-    // Añadimos 'email' y 'nextAction' para la acción de verificación final
     data class OtpVerification(val email: String, val nextAction: String) : AuthState()
     data class ResetPassword(val email: String) : AuthState()
 }
+
+
+// ====================================================================
+// PANTALLA PRINCIPAL: LoginScreen
+// ====================================================================
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(
     authViewModel: AuthViewModel = viewModel(factory = AuthViewModel.Factory)
-    // Se elimina 'onLoginSuccess' ya que la navegación es reactiva al estado del ViewModel
 ) {
     var authState by remember { mutableStateOf<AuthState>(AuthState.Login) }
 
@@ -44,6 +111,25 @@ fun LoginScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
+    // OBTENEMOS EL CONTEXTO para la biometría
+    val context = LocalContext.current
+
+    // Definición de la acción a realizar al iniciar sesión con biometría
+    val onBiometricLogin: () -> Unit = {
+        showBiometricPrompt(
+            context = context,
+            onSuccess = {
+                // LÓGICA CLAVE CORREGIDA
+                // ANTES: authViewModel.setSuccessMessage("Sesión iniciada con éxito") // ¡ERROR!
+                authViewModel.handleBiometricSuccess() // <-- LA NUEVA FUNCIÓN
+            },
+            onError = { errString ->
+                // Mostrar error en el Snackbar
+                authViewModel.setErrorMessage(errString.toString())
+            }
+        )
+    }
+
     // Control de navegación y mensajes basado en estado
     LaunchedEffect(successMessage, errorMessage) {
         // Manejo de mensajes de éxito
@@ -56,13 +142,13 @@ fun LoginScreen(
             }
             when {
                 // Contraseña restablecida
-                msg.contains("Contraseña restablecida con éxito") || msg.contains("Registro verificado") -> {
-                    authState = AuthState.Login // Vuelve al login tras restablecer o verificar registro
+                msg.contains("Contraseña restablecida con éxito") -> {
+                    authState = AuthState.Login // Vuelve al login tras restablecer
                     authViewModel.clearMessages()
                 }
-                // Login exitoso (Sesión iniciada con éxito)
-                msg.contains("Sesión iniciada con éxito") -> {
-                    // La navegación a la pantalla principal ocurre automáticamente si isAuthenticated cambia a true
+                // Verificación de login/registro exitosa
+                msg.contains("Sesión iniciada con éxito") || msg.contains("Usuario registrado con éxito") -> {
+                    // La navegación ocurre automáticamente en Navigation.kt
                     authViewModel.clearMessages()
                 }
                 // Manejo de otros éxitos si es necesario
@@ -95,13 +181,14 @@ fun LoginScreen(
                         email = email, onEmailChange = { email = it },
                         password = password, onPasswordChange = { password = it },
                         isLoading = isLoading,
-                        // ✅ CAMBIADO: Botón de Login directo
-                        buttonText = "Iniciar Sesión",
+                        buttonText = "Solicitar Acceso (Enviar OTP)",
                         onSubmit = {
-                            // 🔑 CAMBIO CLAVE: Llama a la nueva función de login directo
-                            authViewModel.login(email, password)
-                            // La navegación ocurre reactivamente si el login es exitoso
-                        }
+                            authViewModel.loginAndSendOtp(email, password) {
+                                // El éxito de esta función solo lleva a la siguiente pantalla
+                                authState = AuthState.OtpVerification(email, "LOGIN")
+                            }
+                        },
+                        onBiometricLogin = onBiometricLogin // <-- PASAMOS EL CALLBACK
                     ) {
                         TextButton(onClick = { authState = AuthState.Register }) {
                             Text("¿No tienes cuenta? Regístrate")
@@ -121,7 +208,7 @@ fun LoginScreen(
                         onSubmit = {
                             if (password == confirmPassword) {
                                 authViewModel.registerAndSendOtp(email, password) {
-                                    // El éxito de esta función lleva a la verificación de registro
+                                    // El éxito de esta función solo lleva a la siguiente pantalla
                                     authState = AuthState.OtpVerification(email, "REGISTER")
                                 }
                             } else {
@@ -140,7 +227,7 @@ fun LoginScreen(
                         email = email, onEmailChange = { email = it },
                         isLoading = isLoading,
                         onSubmit = {
-                            // Después de solicitar el OTP, navega a la verificación.
+                            // ✅ MODIFICACIÓN CLAVE: Después de solicitar el OTP, navega a la verificación.
                             authViewModel.requestPasswordResetOtp(email) {
                                 authState = AuthState.OtpVerification(email, "RESET_PASSWORD")
                             }
@@ -166,21 +253,22 @@ fun LoginScreen(
                         },
                         isLoading = isLoading,
                         onSubmit = {
-                            // Lógica de verificación. Solo se usa para REGISTER o RESET_PASSWORD
+                            // La lógica de verificación y guardado de token está en el ViewModel
                             authViewModel.confirmOtp(state.email, state.nextAction) {
                                 // ✅ LÓGICA DE NAVEGACIÓN DESPUÉS DE LA VERIFICACIÓN DE OTP:
                                 if (state.nextAction == "RESET_PASSWORD") {
                                     // Si la verificación para RESET_PASSWORD es exitosa, pasa al formulario de cambio.
                                     authState = AuthState.ResetPassword(state.email)
                                 }
-                                // Para "REGISTER", el LaunchedEffect se encargará de volver a AuthState.Login
+                                // Para "LOGIN" y "REGISTER", el ViewModel manejará la sesión y el LaunchedEffect se encargará
+                                // de cualquier navegación fuera de esta pantalla.
                             }
                         },
                         onRequestNewOtp = {
                             when (state.nextAction) {
                                 "REGISTER" -> authViewModel.registerAndSendOtp(state.email, password) { /* Se queda en la misma pantalla */ }
-                                // ❌ ELIMINADA la llamada a loginAndSendOtp
-                                // Si es password reset, usamos la función de reset.
+                                "LOGIN" -> authViewModel.loginAndSendOtp(state.email, password) { /* Se queda en la misma pantalla */ }
+                                // ✅ MODIFICACIÓN: Si es password reset, usamos la función de reset.
                                 "RESET_PASSWORD" -> authViewModel.requestPasswordResetOtp(state.email) { /* Se queda en la misma pantalla */ }
                                 else -> authViewModel.requestPasswordResetOtp(state.email) { /* Se queda en la misma pantalla */ }
                             }
@@ -201,12 +289,12 @@ fun LoginScreen(
                         confirmPassword = confirmPassword, onConfirmPasswordChange = { confirmPassword = it },
                         isLoading = isLoading,
                         onSubmit = {
-                            // Obtenemos el OTP guardado
+                            // ✅ MODIFICACIÓN CLAVE: Obtenemos el OTP guardado
                             val currentOtp = authViewModel.otp.value
 
                             if (password == confirmPassword) {
                                 if (currentOtp.isNotBlank()) {
-                                    // Pasamos el OTP almacenado para la API
+                                    // ✅ MODIFICACIÓN CLAVE: Pasamos el OTP almacenado para la API
                                     authViewModel.resetPassword(state.email, password, currentOtp) {
                                         // El onPasswordResetSuccess del VM establece el mensaje de éxito
                                         // y este LaunchedEffect navegará a AuthState.Login
@@ -230,16 +318,27 @@ fun LoginScreen(
 }
 
 // ----------------------------------------------------
-// Componentes Composable Reutilizables (SIN CAMBIOS)
+// Componentes Composable Reutilizables
 // ----------------------------------------------------
 
+// MODIFICADO: Se añade 'onBiometricLogin'
 @Composable
 fun AuthForm(
     title: String, email: String, onEmailChange: (String) -> Unit,
     password: String, onPasswordChange: (String) -> Unit,
     isLoading: Boolean, buttonText: String, onSubmit: () -> Unit,
+    onBiometricLogin: () -> Unit, // <--- NUEVO PARÁMETRO
     footer: @Composable () -> Unit
 ) {
+    // Necesitamos el contexto para verificar la disponibilidad de biometría
+    val context = LocalContext.current
+    val biometricManager = BiometricManager.from(context)
+
+    // Verificamos si la biometría fuerte está disponible y configurada
+    val isBiometricAvailable = remember {
+        biometricManager.canAuthenticate(BiometricManager.Authenticators.DEVICE_CREDENTIAL) == BiometricManager.BIOMETRIC_SUCCESS
+    }
+
     Column(
         modifier = Modifier.fillMaxSize().padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -271,6 +370,25 @@ fun AuthForm(
                 Text(buttonText)
             }
         }
+
+        // SEPARADOR Y BOTÓN BIOMÉTRICO
+        if (isBiometricAvailable) {
+            Spacer(modifier = Modifier.height(16.dp))
+            OutlinedButton(
+                onClick = onBiometricLogin, // <--- Llama al callback para disparar el prompt
+                enabled = !isLoading,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Fingerprint,
+                    contentDescription = "Login Biométrico",
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Iniciar Sesión con Huella")
+            }
+        }
+
         Spacer(modifier = Modifier.height(16.dp))
         Column(horizontalAlignment = Alignment.CenterHorizontally) { footer() }
     }

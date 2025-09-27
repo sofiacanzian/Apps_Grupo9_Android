@@ -82,6 +82,10 @@ class AuthViewModel(
         }
     }
 
+
+    fun handleBiometricSuccess (){
+        _successMessage.value = "Sesión iniciada con éxito"
+    }
     fun clearMessages() {
         _errorMessage.value = null
         _successMessage.value = null
