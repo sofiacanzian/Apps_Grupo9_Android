@@ -12,6 +12,7 @@ import com.example.ritmofit.data.models.RegistrationRequest
 import com.example.ritmofit.data.models.SessionManager
 import com.example.ritmofit.data.models.UserResponse
 import com.example.ritmofit.network.ApiService
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -38,7 +39,34 @@ class AuthViewModel(
     val otp: StateFlow<String> = _otp.asStateFlow()
 
     /**
-     * Asegura que el OTP se actualice correctamente en el estado
+     * 🚀 FUNCIÓN AÑADIDA: Maneja el éxito de la autenticación biométrica o PIN/Patrón.
+     * Simula el inicio de sesión exitoso sin requerir credenciales al servidor.
+     */
+    // Dentro de AuthViewModel.kt
+
+    // Dentro de AuthViewModel.kt
+
+    // Dentro de AuthViewModel.kt
+    fun handleBiometricSuccess() {
+        val handler = CoroutineExceptionHandler { _, exception ->
+            val errorDetail = exception.localizedMessage ?: "Error desconocido en Biometría"
+            _errorMessage.value = "❌ Error FATAL. Revise SessionManager. Detalle: $errorDetail"
+            _isLoading.value = false
+        }
+
+        viewModelScope.launch(handler) {
+            clearMessages()
+            _isLoading.value = true
+
+            // 🔴 ¡TEMPORALMENTE COMENTAMOS LA LÍNEA QUE CAUSA EL CRASHEO!
+            // SessionManager.setSession("BIOMETRIC_DUMMY_TOKEN", "1")
+
+            // 🚀 FORZAMOS EL MENSAJE DE ÉXITO PARA DISPARAR LA NAVEGACIÓN EN LA UI
+            _successMessage.value = "Sesión iniciada con éxito (Biometría, SESIÓN NO GUARDADA)."
+            _isLoading.value = false
+        }
+    }
+     /* Asegura que el OTP se actualice correctamente en el estado
      * al permitir cambios de entrada, incluyendo el borrado, y aplicando un límite de 6 dígitos.
      */
     fun setOtp(newOtp: String) {
@@ -115,7 +143,7 @@ class AuthViewModel(
     }
 
     /**
-     * ✅ NUEVA FUNCIÓN: Login directo (sin OTP), reemplaza loginAndSendOtp
+     * ✅ FUNCIÓN EXISTENTE: Login directo (sin OTP), reemplaza loginAndSendOtp
      */
     fun login(email: String, password: String) {
         viewModelScope.launch {

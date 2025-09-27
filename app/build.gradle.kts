@@ -66,7 +66,8 @@ dependencies {
     // --- PLATAFORMA DE COMPOSE (BOM) ---
     // Define las versiones para todas las librerías Compose (incluyendo Material3)
     implementation(platform("androidx.compose:compose-bom:2024.06.00"))
-
+    implementation("androidx.fragment:fragment-ktx:1.6.1")
+    implementation("androidx.biometric:biometric:1.1.0") //biometria
 
     // --- DEPENDENCIAS DE COMPOSE Y MATERIAL 3 ---
     // ❌ ELIMINADA: Esta línea causaba el error de resolución. El contenido está en 'material3'.

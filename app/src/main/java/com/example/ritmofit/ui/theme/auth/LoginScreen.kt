@@ -11,6 +11,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
+import androidx.compose.ui.platform.LocalContext // Contexto para acceder a servicios de Android
+import androidx.biometric.BiometricManager // Gestión de biometría
+import androidx.biometric.BiometricPrompt // Diálogo biométrico
+import androidx.fragment.app.FragmentActivity // Necesario para BiometricPrompt en Compose
+import android.content.Context
+import java.util.concurrent.Executor
+import java.util.concurrent.Executors
+import androidx.compose.material.icons.Icons // Ícono de huella
+import androidx.compose.material.icons.filled.Fingerprint
+
 
 // Definimos los estados de la interfaz de autenticación
 sealed class AuthState {
@@ -22,12 +32,81 @@ sealed class AuthState {
     data class ResetPassword(val email: String) : AuthState()
 }
 
+// ====================================================================
+// FUNCIÓN DE UTILIDAD PARA LA BIOMETRÍA
+// ====================================================================
+
+fun showBiometricPrompt(
+    context: Context,
+    onSuccess: () -> Unit,
+    onError: (errString: CharSequence) -> Unit
+) {
+    // Es necesario que el contexto sea una FragmentActivity
+    val activity = context as? FragmentActivity
+    if (activity == null) {
+        onError("Error: La Activity no soporta FragmentActivity.")
+        return
+    }
+
+    val executor: Executor = Executors.newSingleThreadExecutor()
+
+    val callback = object : BiometricPrompt.AuthenticationCallback() {
+        override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+            super.onAuthenticationError(errorCode, errString)
+            // Ignorar cancelación del usuario o botón negativo
+            if (errorCode != BiometricPrompt.ERROR_USER_CANCELED && errorCode != BiometricPrompt.ERROR_NEGATIVE_BUTTON) {
+                onError(errString)
+            }
+        }
+
+        override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+            super.onAuthenticationSucceeded(result)
+            onSuccess() // ¡Éxito!
+        }
+
+        override fun onAuthenticationFailed() {
+            super.onAuthenticationFailed()
+            // El diálogo del sistema gestiona el reintento por fallo de lectura
+        }
+    }
+
+    val biometricPrompt = BiometricPrompt(activity, executor, callback)
+
+    val promptInfo = BiometricPrompt.PromptInfo.Builder()
+        .setTitle("Acceso a RitmoFit")
+        .setSubtitle("Autentícate con tu huella dactilar o credenciales")
+        .setNegativeButtonText("Usar Contraseña de la App")
+        // Permite Biometría Fuerte O Credenciales de Dispositivo (PIN/Patrón/Contraseña)
+        .setAllowedAuthenticators(
+            BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL
+        )
+        .build()
+
+    biometricPrompt.authenticate(promptInfo)
+}
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(
     authViewModel: AuthViewModel = viewModel(factory = AuthViewModel.Factory)
     // Se elimina 'onLoginSuccess' ya que la navegación es reactiva al estado del ViewModel
 ) {
+    // OBTENEMOS EL CONTEXTO para la biometría
+    val context = LocalContext.current
+
+    // Definición de la acción a realizar al iniciar sesión con biometría
+    val onBiometricLogin: () -> Unit = {
+        showBiometricPrompt(
+            context = context,
+            onSuccess = {
+                // Llama a la función de éxito biométrico en el ViewModel
+                authViewModel.handleBiometricSuccess() // ¡Debes añadir esta función en AuthViewModel!
+            },
+            onError = { errString ->
+                // Mostrar error en el Snackbar
+                authViewModel.setErrorMessage(errString.toString())
+            }
+        )
+    }
     var authState by remember { mutableStateOf<AuthState>(AuthState.Login) }
 
     // Estados de entrada para todos los flujos
@@ -98,10 +177,11 @@ fun LoginScreen(
                         // ✅ CAMBIADO: Botón de Login directo
                         buttonText = "Iniciar Sesión",
                         onSubmit = {
-                            // 🔑 CAMBIO CLAVE: Llama a la nueva función de login directo
+                            // 🔑 Llama directamente al nuevo endpoint /api/auth/login
                             authViewModel.login(email, password)
                             // La navegación ocurre reactivamente si el login es exitoso
-                        }
+                        },
+                        onBiometricLogin = onBiometricLogin // <-- AÑADE ESTA LÍNEA
                     ) {
                         TextButton(onClick = { authState = AuthState.Register }) {
                             Text("¿No tienes cuenta? Regístrate")
@@ -238,8 +318,16 @@ fun AuthForm(
     title: String, email: String, onEmailChange: (String) -> Unit,
     password: String, onPasswordChange: (String) -> Unit,
     isLoading: Boolean, buttonText: String, onSubmit: () -> Unit,
+    onBiometricLogin: () -> Unit,
     footer: @Composable () -> Unit
-) {
+)  {
+    val context = LocalContext.current
+    val biometricManager = BiometricManager.from(context)
+
+    val isBiometricAvailable = remember {
+        val authenticators = BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL
+        biometricManager.canAuthenticate(authenticators) == BiometricManager.BIOMETRIC_SUCCESS
+    }
     Column(
         modifier = Modifier.fillMaxSize().padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -271,6 +359,24 @@ fun AuthForm(
                 Text(buttonText)
             }
         }
+
+        if (isBiometricAvailable) {
+            Spacer(modifier = Modifier.height(16.dp))
+            OutlinedButton(
+                onClick = onBiometricLogin, // <--- Llama al callback para disparar el prompt
+                enabled = !isLoading,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Fingerprint,
+                    contentDescription = "Login Biométrico",
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Iniciar Sesión con Huella/PIN")
+            }
+        }
+
         Spacer(modifier = Modifier.height(16.dp))
         Column(horizontalAlignment = Alignment.CenterHorizontally) { footer() }
     }

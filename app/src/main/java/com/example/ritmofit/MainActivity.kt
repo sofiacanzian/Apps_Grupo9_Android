@@ -2,15 +2,14 @@
 package com.example.ritmofit
 
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
 import androidx.navigation.compose.rememberNavController
 import com.example.ritmofit.utils.RitmoFitNavigation
 import com.example.ritmofit.ui.theme.theme.RitmoFitTheme
-
-class MainActivity : ComponentActivity() {
+import androidx.fragment.app.FragmentActivity
+class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
