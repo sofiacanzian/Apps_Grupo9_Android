@@ -67,8 +67,6 @@ dependencies {
     // Define las versiones para todas las librerías Compose (incluyendo Material3)
     implementation(platform("androidx.compose:compose-bom:2024.06.00"))
 
-    // --- BIOMETRIA  ---
-    implementation("androidx.biometric:biometric-ktx:1.2.0-alpha05")
 
     // --- DEPENDENCIAS DE COMPOSE Y MATERIAL 3 ---
     // ❌ ELIMINADA: Esta línea causaba el error de resolución. El contenido está en 'material3'.
