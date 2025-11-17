@@ -37,6 +37,7 @@ import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Flag
 
 // Imports de Datos y Modelos
 import com.example.ritmofit.data.models.GymClass
@@ -58,6 +59,7 @@ fun HomeScreen(
     onNavigateToQrScanner: () -> Unit,
     onNavigateToHistory: () -> Unit,
     onNavigateToClasses: () -> Unit,
+    onNavigateToGoals: () -> Unit,
     onClassClick: (GymClass) -> Unit,
     homeViewModel: HomeViewModel = viewModel(factory = HomeViewModel.Factory)
 ) {
@@ -114,6 +116,12 @@ fun HomeScreen(
                 )
                 NavigationBarItem(
                     selected = false,
+                    onClick = onNavigateToGoals,
+                    icon = { Icon(Icons.Default.Flag, contentDescription = "Objetivos") },
+                    label = { Text("Objetivos") }
+                )
+                NavigationBarItem(
+                    selected = false,
                     onClick = onNavigateToReservations,
                     icon = { Icon(Icons.Default.ShoppingCart, contentDescription = "Reservas") },
                     label = { Text("Reservas") }
@@ -144,6 +152,9 @@ fun HomeScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
+            GoalsQuickAccessCard(
+                onNavigateToGoals = onNavigateToGoals
+            )
             // ✅ SECCIÓN DE FILTROS AÑADIDA Y DESCOMENTADA
             when (val state = filtersState) {
                 is HomeViewModel.FilterUiState.Success -> {
@@ -205,6 +216,46 @@ fun HomeScreen(
                     }
                     else -> { /* Estado inicial/vacío */ }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun GoalsQuickAccessCard(onNavigateToGoals: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Default.Flag,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                modifier = Modifier.size(32.dp)
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Objetivos activos",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+                Text(
+                    text = "Sigue tu progreso y ajusta tus metas personales.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+            }
+            Button(onClick = onNavigateToGoals) {
+                Text("Ver")
             }
         }
     }

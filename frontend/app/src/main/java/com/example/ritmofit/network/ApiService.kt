@@ -1,6 +1,8 @@
 package com.example.ritmofit.network
 
 import com.example.ritmofit.data.models.AuthRequest
+import com.example.ritmofit.data.models.FitnessGoal
+import com.example.ritmofit.data.models.GoalRequest
 import com.example.ritmofit.data.models.GymClass
 import com.example.ritmofit.data.models.OtpConfirmationRequest
 import com.example.ritmofit.data.models.PasswordResetRequest
@@ -111,4 +113,23 @@ interface ApiService {
         @Query("startDate") startDate: String? = null,
         @Query("endDate") endDate: String? = null
     ): Response<List<Reservation>>
+
+    // ----------------------------------------------------
+    // ENDPOINTS DE OBJETIVOS PERSONALES
+    // ----------------------------------------------------
+
+    @GET("api/goals/{userId}")
+    suspend fun getFitnessGoals(@Path("userId") userId: String): Response<List<FitnessGoal>>
+
+    @POST("api/goals")
+    suspend fun createFitnessGoal(@Body request: GoalRequest): Response<FitnessGoal>
+
+    @PUT("api/goals/{goalId}")
+    suspend fun updateFitnessGoal(
+        @Path("goalId") goalId: String,
+        @Body request: GoalRequest
+    ): Response<FitnessGoal>
+
+    @DELETE("api/goals/{goalId}")
+    suspend fun deleteFitnessGoal(@Path("goalId") goalId: String): Response<Unit>
 }

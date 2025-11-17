@@ -47,6 +47,7 @@ import com.example.ritmofit.ui.theme.classes.ClassDetailViewModel
 import com.example.ritmofit.ui.theme.history.HistoryViewModel
 import com.example.ritmofit.profile.ProfileViewModel
 import com.example.ritmofit.ui.theme.reservation.ReservationsViewModel
+import com.example.ritmofit.ui.theme.goals.GoalsScreen
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -81,6 +82,7 @@ fun RitmoFitNavigation() {
                     when (currentRoute) {
                         "login" -> Text("Autenticación") // Nombre unificado
                         "home" -> Text("RitmoFit")
+                        "goals" -> Text("Objetivos")
                         "profile" -> Text("Mi Perfil")
                         "classes" -> Text("Clases")
                         "reservations" -> Text("Mis Reservas")
@@ -127,8 +129,15 @@ fun RitmoFitNavigation() {
                     onNavigateToQrScanner = { navController.navigate("qrscanner") },
                     onNavigateToHistory = { navController.navigate("history") },
                     onNavigateToClasses = { navController.navigate("classes") },
+                    onNavigateToGoals = { navController.navigate("goals") },
                     onClassClick = { gymClass -> navController.navigate("classDetail/${gymClass._id}") },
                     homeViewModel = homeViewModel
+                )
+            }
+
+            composable("goals") {
+                GoalsScreen(
+                    paddingValues = innerPadding
                 )
             }
 

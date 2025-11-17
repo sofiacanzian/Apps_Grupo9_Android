@@ -80,6 +80,16 @@ const reservationSchema = new mongoose.Schema({
 }, { collection: 'reservations' });
 const Reservation = mongoose.model('Reservation', reservationSchema);
 
+const goalSchema = new mongoose.Schema({
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    title: { type: String, required: true },
+    targetCount: { type: Number, required: true },
+    periodType: { type: String, enum: ['WEEK', 'MONTH'], required: true },
+    discipline: { type: String, default: null },
+    reminderThreshold: { type: Number, default: 1 }
+}, { collection: 'goals', timestamps: true });
+const Goal = mongoose.model('Goal', goalSchema);
+
 const counterSchema = new mongoose.Schema({
     _id: { type: String, required: true },
     seq: { type: Number, default: 0 }
@@ -198,6 +208,96 @@ function getSpanishDay(dateString) {
   if (!d) return null;
   const days = ['domingo','lunes','martes','miercoles','jueves','viernes','sabado'];
   return days[d.getDay()];
+}
+
+function normalizeDiscipline(value) {
+    return value ? value.trim().toLowerCase() : null;
+}
+
+function getPeriodRange(periodType = 'MONTH', referenceDate = new Date()) {
+    const start = new Date(referenceDate);
+    const end = new Date(referenceDate);
+
+    if (periodType === 'WEEK') {
+        const currentDay = start.getDay(); // 0 domingo ... 6 sabado
+        const diffToMonday = (currentDay === 0 ? -6 : 1) - currentDay;
+        start.setDate(start.getDate() + diffToMonday);
+        start.setHours(0, 0, 0, 0);
+
+        end.setTime(start.getTime());
+        end.setDate(start.getDate() + 6);
+        end.setHours(23, 59, 59, 999);
+    } else {
+        start.setDate(1);
+        start.setHours(0, 0, 0, 0);
+
+        end.setMonth(end.getMonth() + 1);
+        end.setDate(0); // ultimo dia del mes anterior
+        end.setHours(23, 59, 59, 999);
+    }
+
+    return { start, end };
+}
+
+function formatPeriodLabel(periodType, start, end) {
+    const months = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+    if (periodType === 'WEEK') {
+        const formatDate = (date) => {
+            return `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+        };
+        return `Semana ${formatDate(start)} - ${formatDate(end)}`;
+    }
+    const monthLabel = months[start.getMonth()] || '';
+    return `${monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1)} ${start.getFullYear()}`;
+}
+
+async function buildGoalPayload(goal, userId) {
+    const { start, end } = getPeriodRange(goal.periodType);
+    const baseQuery = {
+        userId,
+        status: 'attended',
+        classDate: { $gte: start, $lte: end }
+    };
+
+    const reservations = await Reservation.find(baseQuery).populate('classId');
+    let filteredReservations = reservations;
+
+    if (goal.discipline) {
+        const goalDiscipline = normalizeDiscipline(goal.discipline);
+        filteredReservations = reservations.filter(r => {
+            if (!r.classId) return false;
+            const discipline = normalizeDiscipline(r.classId.discipline || r.classId.name);
+            return discipline === goalDiscipline;
+        });
+    }
+
+    const progress = filteredReservations.length;
+    const remaining = Math.max(goal.targetCount - progress, 0);
+    const reminderThreshold = goal.reminderThreshold ?? 1;
+    let status = 'IN_PROGRESS';
+    if (remaining === 0) {
+        status = 'COMPLETED';
+    } else if (remaining <= reminderThreshold) {
+        status = 'NEAR_COMPLETION';
+    }
+
+    const progressPercentage = goal.targetCount > 0 ? Math.min(progress / goal.targetCount, 1) : 0;
+
+    return {
+        id: goal._id.toString(),
+        userId: goal.userId.toString(),
+        title: goal.title,
+        targetCount: goal.targetCount,
+        periodType: goal.periodType,
+        discipline: goal.discipline,
+        currentProgress: progress,
+        remaining,
+        status,
+        progressPercentage,
+        periodLabel: formatPeriodLabel(goal.periodType, start, end),
+        reminderThreshold,
+        updatedAt: goal.updatedAt
+    };
 }
 
 
@@ -933,6 +1033,120 @@ await gymClass.save();
 // =========================================================================
 // 🔒 RUTAS DE HISTORIAL (PROTEGIDAS)
 // =========================================================================
+
+// =========================================================================
+// RUTAS DE OBJETIVOS PERSONALES (PROTEGIDAS)
+// =========================================================================
+
+const ALLOWED_PERIODS = ['WEEK', 'MONTH'];
+
+function validateGoalRequest(payload = {}) {
+    const errors = [];
+    if (!payload.title || !payload.title.trim()) {
+        errors.push('El nombre del objetivo es obligatorio.');
+    }
+    const target = Number(payload.targetCount);
+    if (!Number.isFinite(target) || target <= 0) {
+        errors.push('El objetivo debe tener una meta numérica mayor a 0.');
+    }
+    if (!payload.periodType || !ALLOWED_PERIODS.includes(String(payload.periodType).toUpperCase())) {
+        errors.push('El tipo de periodo es inválido. Usa WEEK o MONTH.');
+    }
+    return { errors, target };
+}
+
+app.get('/api/goals/:userId', auth, async (req, res) => {
+    const { userId } = req.params;
+    if (req.user.userId !== userId) {
+        return res.status(403).json({ message: 'No tienes permisos para ver estos objetivos.' });
+    }
+
+    try {
+        const goals = await Goal.find({ userId }).sort({ createdAt: -1 });
+        const payload = await Promise.all(goals.map(goal => buildGoalPayload(goal, userId)));
+        res.json(payload);
+    } catch (error) {
+        console.error('Error al obtener objetivos:', error);
+        res.status(500).json({ message: 'No se pudieron cargar los objetivos', error });
+    }
+});
+
+app.post('/api/goals', auth, async (req, res) => {
+    const { errors, target } = validateGoalRequest(req.body);
+    if (errors.length) {
+        return res.status(400).json({ message: errors.join(' ') });
+    }
+
+    try {
+        const newGoal = await Goal.create({
+            userId: req.user.userId,
+            title: req.body.title.trim(),
+            targetCount: target,
+            periodType: String(req.body.periodType).toUpperCase(),
+            discipline: req.body.discipline ? req.body.discipline.trim() : null,
+            reminderThreshold: req.body.reminderThreshold ?? 1
+        });
+
+        const payload = await buildGoalPayload(newGoal, req.user.userId);
+        res.status(201).json(payload);
+    } catch (error) {
+        console.error('Error al crear objetivo:', error);
+        res.status(500).json({ message: 'No se pudo crear el objetivo', error });
+    }
+});
+
+app.put('/api/goals/:goalId', auth, async (req, res) => {
+    const { goalId } = req.params;
+    const { errors, target } = validateGoalRequest(req.body);
+    if (errors.length) {
+        return res.status(400).json({ message: errors.join(' ') });
+    }
+
+    try {
+        const goal = await Goal.findById(goalId);
+        if (!goal) {
+            return res.status(404).json({ message: 'Objetivo no encontrado.' });
+        }
+
+        if (goal.userId.toString() !== req.user.userId) {
+            return res.status(403).json({ message: 'No está autorizado a editar este objetivo.' });
+        }
+
+        goal.title = req.body.title.trim();
+        goal.targetCount = target;
+        goal.periodType = String(req.body.periodType).toUpperCase();
+        goal.discipline = req.body.discipline ? req.body.discipline.trim() : null;
+        goal.reminderThreshold = req.body.reminderThreshold ?? goal.reminderThreshold;
+        await goal.save();
+
+        const payload = await buildGoalPayload(goal, req.user.userId);
+        res.json(payload);
+    } catch (error) {
+        console.error('Error al actualizar objetivo:', error);
+        res.status(500).json({ message: 'No se pudo actualizar el objetivo', error });
+    }
+});
+
+app.delete('/api/goals/:goalId', auth, async (req, res) => {
+    const { goalId } = req.params;
+
+    try {
+        const goal = await Goal.findById(goalId);
+        if (!goal) {
+            return res.status(404).json({ message: 'Objetivo no encontrado.' });
+        }
+
+        if (goal.userId.toString() !== req.user.userId) {
+            return res.status(403).json({ message: 'No está autorizado a eliminar este objetivo.' });
+        }
+
+        await goal.deleteOne();
+        res.json({ message: 'Objetivo eliminado.' });
+    } catch (error) {
+        console.error('Error al eliminar objetivo:', error);
+        res.status(500).json({ message: 'No se pudo eliminar el objetivo', error });
+    }
+});
 
 // Ruta para obtener el historial de asistencias de un usuario
 app.get('/api/history/:userId', auth, async (req, res) => {
