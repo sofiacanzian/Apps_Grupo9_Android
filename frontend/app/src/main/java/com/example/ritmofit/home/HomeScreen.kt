@@ -46,10 +46,10 @@ import com.example.ritmofit.network.FilterResponse
 // Imports de Fecha (ThreetenBP y Java)
 import org.threeten.bp.LocalDate
 import org.threeten.bp.format.DateTimeFormatter
-import org.threeten.bp.ZoneId
 import java.util.Locale
 import java.text.SimpleDateFormat
 import java.util.Date
+import java.util.Calendar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -441,8 +441,14 @@ fun FilterDateButton(
                     onClick = {
                         val selectedDateMillis = datePickerState.selectedDateMillis
                         if (selectedDateMillis != null) {
-                            // Convierte milisegundos de vuelta a java.util.Date
-                            onDateSelected(Date(selectedDateMillis))
+                            val calendar = Calendar.getInstance().apply {
+                                timeInMillis = selectedDateMillis
+                                set(Calendar.HOUR_OF_DAY, 12)
+                                set(Calendar.MINUTE, 0)
+                                set(Calendar.SECOND, 0)
+                                set(Calendar.MILLISECOND, 0)
+                            }
+                            onDateSelected(calendar.time)
                         } else {
                             onDateSelected(null)
                         }
