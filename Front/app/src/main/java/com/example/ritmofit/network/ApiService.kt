@@ -6,6 +6,7 @@ import com.example.ritmofit.data.models.OtpConfirmationRequest
 import com.example.ritmofit.data.models.PasswordResetRequest
 import com.example.ritmofit.data.models.RegistrationRequest
 import com.example.ritmofit.data.models.Reservation
+import com.example.ritmofit.data.models.TrainingPreferences
 import com.example.ritmofit.data.models.User
 import com.example.ritmofit.data.models.UserResponse
 import retrofit2.Response
@@ -58,6 +59,26 @@ interface ApiService {
         @Path("userId") userId: String,
         @Body user: User
     ): Response<User>
+
+    // ----------------------------------------------------
+    // PREFERENCIAS DE ENTRENAMIENTO
+    // ----------------------------------------------------
+
+    @GET("api/preferences/{userId}")
+    suspend fun getTrainingPreferences(
+        @Path("userId") userId: String
+    ): Response<TrainingPreferences>
+
+    @PUT("api/preferences/{userId}")
+    suspend fun updateTrainingPreferences(
+        @Path("userId") userId: String,
+        @Body preferences: TrainingPreferences
+    ): Response<TrainingPreferences>
+
+    @DELETE("api/preferences/{userId}")
+    suspend fun resetTrainingPreferences(
+        @Path("userId") userId: String
+    ): Response<TrainingPreferences>
 
     // ----------------------------------------------------
     // 🏋️ ENDPOINTS DE CLASES (PROTEGIDOS - CRUD USUARIO/ADMIN)

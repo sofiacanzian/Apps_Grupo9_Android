@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.items
 // Imports de Material 3 y Runtime
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -27,7 +28,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.font.FontWeight
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.compose.LocalLifecycleOwner
 
 // Imports de Íconos
 import androidx.compose.material.icons.Icons
@@ -40,6 +44,7 @@ import androidx.compose.material.icons.filled.CalendarMonth
 
 // Imports de Datos y Modelos
 import com.example.ritmofit.data.models.GymClass
+import com.example.ritmofit.data.models.TrainingPreferences
 import com.example.ritmofit.network.FilterResponse
 
 // Imports de Fecha (ThreetenBP y Java)
@@ -61,8 +66,10 @@ fun HomeScreen(
     onClassClick: (GymClass) -> Unit,
     homeViewModel: HomeViewModel = viewModel(factory = HomeViewModel.Factory)
 ) {
+    val lifecycleOwner = LocalLifecycleOwner.current
     val classesState by homeViewModel.classesState.collectAsState()
     val filtersState by homeViewModel.filtersState.collectAsState()
+    val preferencesState by homeViewModel.preferencesState.collectAsState()
 
     // 🔑 NUEVO: Estado de la reserva y estado del Snackbar
     val reservationState by homeViewModel.reservationState.collectAsState()
@@ -78,6 +85,19 @@ fun HomeScreen(
     LaunchedEffect(Unit) {
         homeViewModel.fetchFilters()
         homeViewModel.fetchClasses()
+        homeViewModel.fetchTrainingPreferences()
+    }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                homeViewModel.fetchTrainingPreferences()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
     }
 
     // 🔑 NUEVO: Efecto para mostrar el Snackbar cuando el estado de la reserva cambia
@@ -169,6 +189,12 @@ fun HomeScreen(
             }
             Divider()
 
+            PreferenceBanner(
+                state = preferencesState,
+                onCustomize = onNavigateToProfile,
+                onRetry = homeViewModel::fetchTrainingPreferences
+            )
+
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -207,6 +233,99 @@ fun HomeScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun PreferenceBanner(
+    state: HomeViewModel.PreferencesUiState,
+    onCustomize: () -> Unit,
+    onRetry: () -> Unit
+) {
+    when (state) {
+        HomeViewModel.PreferencesUiState.Loading -> {
+            LinearProgressIndicator(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+            )
+        }
+        is HomeViewModel.PreferencesUiState.Success -> {
+            val preferences = state.preferences
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    val title = if (preferences.hasSelections()) {
+                        "Clases ordenadas para ti"
+                    } else {
+                        "Personaliza tu Home"
+                    }
+                    Text(title, style = MaterialTheme.typography.titleMedium)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    val subtitle = if (preferences.hasSelections()) {
+                        buildPreferenceSummary(preferences)
+                    } else {
+                        "Aún no configuraste preferencias. Cuéntanos tus disciplinas, sedes y horarios favoritos."
+                    }
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    TextButton(onClick = onCustomize) {
+                        val label = if (preferences.hasSelections()) "Editar preferencias" else "Configurar ahora"
+                        Text(label)
+                    }
+                }
+            }
+        }
+        is HomeViewModel.PreferencesUiState.Error -> {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "No pudimos cargar tus preferencias.",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = state.message,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    TextButton(onClick = onRetry) {
+                        Text("Reintentar")
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun buildPreferenceSummary(preferences: TrainingPreferences): String {
+    val parts = mutableListOf<String>()
+    if (preferences.favoriteDisciplines.isNotEmpty()) {
+        parts.add("Disciplinas: ${preferences.favoriteDisciplines.joinToString()}")
+    }
+    if (preferences.preferredLocations.isNotEmpty()) {
+        parts.add("Sedes: ${preferences.preferredLocations.joinToString()}")
+    }
+    if (preferences.preferredTimeRanges.isNotEmpty()) {
+        val ranges = preferences.preferredTimeRanges.joinToString { it.label }
+        parts.add("Horarios: $ranges")
+    }
+    return if (parts.isEmpty()) {
+        "Aún no seleccionaste preferencias."
+    } else {
+        parts.joinToString(" · ")
     }
 }
 

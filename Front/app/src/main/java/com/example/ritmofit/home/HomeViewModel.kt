@@ -10,6 +10,7 @@ import androidx.lifecycle.viewmodel.CreationExtras
 import com.example.ritmofit.RitmoFitApplication
 import com.example.ritmofit.data.models.GymClass
 import com.example.ritmofit.data.models.SessionManager
+import com.example.ritmofit.data.models.TrainingPreferences
 import com.example.ritmofit.network.ApiService
 import com.example.ritmofit.network.FilterResponse
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -31,6 +32,9 @@ class HomeViewModel(
     private val _reservationState = MutableStateFlow<ReservationUiState>(ReservationUiState.Idle)
     val reservationState: StateFlow<ReservationUiState> = _reservationState.asStateFlow()
 
+    private val _preferencesState = MutableStateFlow<PreferencesUiState>(PreferencesUiState.Loading)
+    val preferencesState: StateFlow<PreferencesUiState> = _preferencesState.asStateFlow()
+
     // Estados de los filtros
     var selectedLocation by mutableStateOf<String?>(null)
     var selectedDiscipline by mutableStateOf<String?>(null)
@@ -38,6 +42,9 @@ class HomeViewModel(
 
     private val _filtersState = MutableStateFlow<FilterUiState>(FilterUiState.Loading)
     val filtersState: StateFlow<FilterUiState> = _filtersState.asStateFlow()
+
+    private var cachedPreferences: TrainingPreferences = TrainingPreferences.EMPTY
+    private var cachedClasses: List<GymClass> = emptyList()
 
     sealed class ClassesUiState {
         object Loading : ClassesUiState()
@@ -56,6 +63,12 @@ class HomeViewModel(
         object Loading : FilterUiState()
         data class Success(val filters: FilterResponse) : FilterUiState()
         data class Error(val message: String) : FilterUiState()
+    }
+
+    sealed class PreferencesUiState {
+        object Loading : PreferencesUiState()
+        data class Success(val preferences: TrainingPreferences) : PreferencesUiState()
+        data class Error(val message: String) : PreferencesUiState()
     }
 
     // Funciones para establecer los filtros y recargar las clases
@@ -104,8 +117,10 @@ class HomeViewModel(
                 )
 
                 if (response.isSuccessful) {
-                    val classes = response.body() ?: emptyList()
-                    _classesState.value = ClassesUiState.Success(classes)
+                    cachedClasses = response.body() ?: emptyList()
+                    _classesState.value = ClassesUiState.Success(
+                        orderClassesByPreferences(cachedClasses)
+                    )
                 } else {
                     _classesState.value = ClassesUiState.Error("Error al cargar las clases: ${response.code()}")
                 }
@@ -132,6 +147,34 @@ class HomeViewModel(
                 _filtersState.value = FilterUiState.Error("Error de red. Verifique su conexión.")
             } catch (e: Exception) {
                 _filtersState.value = FilterUiState.Error("Error inesperado: ${e.message}")
+            }
+        }
+    }
+
+    fun fetchTrainingPreferences() {
+        val userId = SessionManager.getUserId()
+        if (userId == null) {
+            _preferencesState.value = PreferencesUiState.Error("Usuario no autenticado.")
+            return
+        }
+
+        viewModelScope.launch {
+            _preferencesState.value = PreferencesUiState.Loading
+            try {
+                val response = apiService.getTrainingPreferences(userId)
+                if (response.isSuccessful) {
+                    cachedPreferences = response.body() ?: TrainingPreferences.EMPTY
+                    _preferencesState.value = PreferencesUiState.Success(cachedPreferences)
+                    if (cachedClasses.isNotEmpty()) {
+                        _classesState.value = ClassesUiState.Success(orderClassesByPreferences(cachedClasses))
+                    }
+                } else {
+                    _preferencesState.value = PreferencesUiState.Error("Error al cargar preferencias: ${response.code()}")
+                }
+            } catch (e: IOException) {
+                _preferencesState.value = PreferencesUiState.Error("Error de red al obtener preferencias.")
+            } catch (e: Exception) {
+                _preferencesState.value = PreferencesUiState.Error("Error inesperado: ${e.message}")
             }
         }
     }
@@ -186,4 +229,42 @@ class HomeViewModel(
             }
         }
     }
+
+    private fun orderClassesByPreferences(classes: List<GymClass>): List<GymClass> {
+        if (cachedPreferences.isEmpty()) return classes
+        return classes.sortedByDescending { preferenceScore(it, cachedPreferences) }
+    }
+
+    private fun preferenceScore(gymClass: GymClass, preferences: TrainingPreferences): Int {
+        var score = 0
+        if (preferences.favoriteDisciplines.any { it.equals(gymClass.discipline, ignoreCase = true) }) {
+            score += 3
+        }
+        if (preferences.preferredLocations.any { it.equals(gymClass.location.name, ignoreCase = true) }) {
+            score += 2
+        }
+        if (matchesPreferredTime(gymClass.schedule.startTime, preferences)) {
+            score += 1
+        }
+        return score
+    }
+
+    private fun matchesPreferredTime(startTime: String?, preferences: TrainingPreferences): Boolean {
+        val minutes = parseMinutes(startTime) ?: return false
+        return preferences.preferredTimeRanges.any { range ->
+            val startMinutes = parseMinutes(range.start) ?: return@any false
+            val endMinutes = parseMinutes(range.end) ?: return@any false
+            minutes in startMinutes until endMinutes
+        }
+    }
+
+    private fun parseMinutes(time: String?): Int? {
+        if (time.isNullOrBlank()) return null
+        val parts = time.split(":")
+        if (parts.size != 2) return null
+        val hours = parts[0].toIntOrNull() ?: return null
+        val minutes = parts[1].toIntOrNull() ?: return null
+        return hours * 60 + minutes
+    }
+
 }

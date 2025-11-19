@@ -1,21 +1,33 @@
 package com.example.ritmofit.profile
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -27,45 +39,94 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.layout.wrapContentSize
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.rememberAsyncImagePainter
 import com.example.ritmofit.R
+import com.example.ritmofit.data.models.PreferredTimeRange
 import com.example.ritmofit.data.models.SessionManager
+import com.example.ritmofit.data.models.TrainingPreferences
 import com.example.ritmofit.data.models.User
 import java.text.SimpleDateFormat
 import java.util.Locale
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun ProfileScreen(
     onNavigateBack: () -> Unit,
     onLogout: () -> Unit,
     profileViewModel: ProfileViewModel = viewModel()
 ) {
-    // 1. Estado local para almacenar el userId una vez que se carga
     var currentUserId by remember { mutableStateOf<String?>(null) }
+    var isUserIdResolved by remember { mutableStateOf(false) }
 
-    // 2. Cargar el userId de forma asíncrona al iniciar la pantalla
     LaunchedEffect(Unit) {
-        // CORRECCIÓN CLAVE: Obtener el ID de forma asíncrona
         currentUserId = SessionManager.getUserId()
+        profileViewModel.fetchFilters()
+        isUserIdResolved = true
     }
 
-    // 3. Ejecutar la carga del perfil una vez que el currentUserId está disponible
     LaunchedEffect(currentUserId) {
-        val userId = currentUserId
-        if (userId != null) {
+        currentUserId?.let { userId ->
             profileViewModel.fetchUserProfile(userId)
+            profileViewModel.fetchTrainingPreferences(userId)
         }
-        // Nota: Si userId es nulo aquí (usuario no autenticado), la UI simplemente no carga el perfil.
     }
 
     val uiState by profileViewModel.userProfileState.collectAsState()
+    val preferencesState by profileViewModel.preferencesState.collectAsState()
+    val filtersState by profileViewModel.filtersState.collectAsState()
+    val scrollState = rememberScrollState()
     var isEditing by remember { mutableStateOf(false) }
 
-    // Muestra un mensaje si el usuario no está autenticado o si el ID aún se está cargando
+    val basePreferences = when (val prefState = preferencesState) {
+        is ProfileViewModel.PreferencesUiState.Success -> prefState.preferences
+        is ProfileViewModel.PreferencesUiState.Error -> TrainingPreferences.EMPTY
+        ProfileViewModel.PreferencesUiState.Loading -> null
+    }
+
+    var selectedDisciplines by remember(basePreferences) {
+        mutableStateOf(basePreferences?.favoriteDisciplines?.toSet() ?: emptySet())
+    }
+    var selectedLocations by remember(basePreferences) {
+        mutableStateOf(basePreferences?.preferredLocations?.toSet() ?: emptySet())
+    }
+    var selectedTimeRanges by remember(basePreferences) {
+        mutableStateOf(basePreferences?.preferredTimeRanges?.toSet() ?: emptySet())
+    }
+
+    val availableTimeSlots = remember(basePreferences) {
+        val defaults = DefaultTimeRanges.toMutableList()
+        basePreferences?.preferredTimeRanges?.forEach { range ->
+            if (defaults.none { it.start == range.start && it.end == range.end }) {
+                defaults.add(range)
+            }
+        }
+        defaults.toList()
+    }
+
+    val isPreferencesLoading = preferencesState is ProfileViewModel.PreferencesUiState.Loading
+    val availableDisciplines = when (val state = filtersState) {
+        is ProfileViewModel.FilterUiState.Success -> state.filters.disciplines
+        else -> emptyList()
+    }
+    val availableLocations = when (val state = filtersState) {
+        is ProfileViewModel.FilterUiState.Success -> state.filters.locations
+        else -> emptyList()
+    }
+
+    if (!isUserIdResolved) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .wrapContentSize(Alignment.Center)
+        ) {
+            CircularProgressIndicator()
+        }
+        return
+    }
+
     if (currentUserId == null) {
         Text(
             text = "Acceso denegado. Usuario no autenticado.",
@@ -75,6 +136,8 @@ fun ProfileScreen(
         )
         return
     }
+
+    val resolvedUserId = currentUserId!!
 
     when (uiState) {
         is ProfileViewModel.ProfileUiState.Loading -> {
@@ -97,7 +160,8 @@ fun ProfileScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(16.dp),
+                    .padding(16.dp)
+                    .verticalScroll(scrollState),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 if (user.profilePhotoUrl != null) {
@@ -176,7 +240,7 @@ fun ProfileScreen(
                                 lastName = lastName
                             )
                             // Usamos el ID cargado previamente
-                            profileViewModel.updateUserProfile(currentUserId!!, updatedUser)
+                            profileViewModel.updateUserProfile(resolvedUserId, updatedUser)
                             isEditing = false
                         },
                         modifier = Modifier.fillMaxWidth()
@@ -192,13 +256,125 @@ fun ProfileScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Card(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = "Preferencias de entrenamiento",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Usamos esta informaciA3n para ordenar las clases que ves en la Home.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        if (isPreferencesLoading || filtersState is ProfileViewModel.FilterUiState.Loading) {
+                            CircularProgressIndicator(modifier = Modifier.size(32.dp))
+                            Spacer(modifier = Modifier.height(12.dp))
+                        }
+
+                        if (preferencesState is ProfileViewModel.PreferencesUiState.Error) {
+                            Text(
+                                text = (preferencesState as ProfileViewModel.PreferencesUiState.Error).message,
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
+
+                        if (filtersState is ProfileViewModel.FilterUiState.Error) {
+                            Text(
+                                text = (filtersState as ProfileViewModel.FilterUiState.Error).message,
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
+
+                        MultiSelectChipGroup(
+                            title = "Disciplinas favoritas",
+                            options = availableDisciplines,
+                            selectedItems = selectedDisciplines,
+                            enabled = !isPreferencesLoading
+                        ) { value ->
+                            selectedDisciplines = if (selectedDisciplines.contains(value)) {
+                                selectedDisciplines - value
+                            } else {
+                                selectedDisciplines + value
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        MultiSelectChipGroup(
+                            title = "Sedes frecuentes",
+                            options = availableLocations,
+                            selectedItems = selectedLocations,
+                            enabled = !isPreferencesLoading
+                        ) { value ->
+                            selectedLocations = if (selectedLocations.contains(value)) {
+                                selectedLocations - value
+                            } else {
+                                selectedLocations + value
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        TimeRangeChipGroup(
+                            title = "Horarios habituales",
+                            options = availableTimeSlots,
+                            selectedItems = selectedTimeRanges,
+                            enabled = !isPreferencesLoading
+                        ) { range ->
+                            selectedTimeRanges = if (selectedTimeRanges.contains(range)) {
+                                selectedTimeRanges - range
+                            } else {
+                                selectedTimeRanges + range
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Button(
+                    onClick = {
+                        val preferences = TrainingPreferences(
+                            favoriteDisciplines = selectedDisciplines.toList(),
+                            preferredLocations = selectedLocations.toList(),
+                            preferredTimeRanges = selectedTimeRanges.toList()
+                        )
+                        profileViewModel.saveTrainingPreferences(resolvedUserId, preferences)
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isPreferencesLoading
+                ) {
+                    Text("Guardar preferencias")
+                }
+
+                TextButton(
+                    onClick = { profileViewModel.resetTrainingPreferences(resolvedUserId) },
+                    enabled = !isPreferencesLoading
+                ) {
+                    Text("Restablecer preferencias")
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
 
                 Button(
                     onClick = onLogout,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Cerrar Sesión")
+                    Text("Cerrar SesiA3n")
                 }
             }
         }
@@ -207,3 +383,80 @@ fun ProfileScreen(
         }
     }
 }
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun MultiSelectChipGroup(
+    title: String,
+    options: List<String>,
+    selectedItems: Set<String>,
+    enabled: Boolean,
+    onSelectionChange: (String) -> Unit
+) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.titleSmall,
+        fontWeight = FontWeight.SemiBold
+    )
+    if (options.isEmpty()) {
+        Text(
+            text = "A�n no hay opciones disponibles.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        return
+    }
+    Spacer(modifier = Modifier.height(8.dp))
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        options.forEach { option ->
+            val isSelected = selectedItems.contains(option)
+            FilterChip(
+                selected = isSelected,
+                onClick = { onSelectionChange(option) },
+                enabled = enabled,
+                label = { Text(option) }
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun TimeRangeChipGroup(
+    title: String,
+    options: List<PreferredTimeRange>,
+    selectedItems: Set<PreferredTimeRange>,
+    enabled: Boolean,
+    onSelectionChange: (PreferredTimeRange) -> Unit
+) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.titleSmall,
+        fontWeight = FontWeight.SemiBold
+    )
+    Spacer(modifier = Modifier.height(8.dp))
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        options.forEach { option ->
+            val isSelected = selectedItems.any { it.start == option.start && it.end == option.end }
+            FilterChip(
+                selected = isSelected,
+                onClick = { onSelectionChange(option) },
+                enabled = enabled,
+                label = { Text(option.label) }
+            )
+        }
+    }
+}
+
+private val DefaultTimeRanges = listOf(
+    PreferredTimeRange("MaA�ana (6 a 11 hs)", "06:00", "11:00"),
+    PreferredTimeRange("MediodA-a (11 a 14 hs)", "11:00", "14:00"),
+    PreferredTimeRange("Tarde (14 a 18 hs)", "14:00", "18:00"),
+    PreferredTimeRange("Noche (18 a 22 hs)", "18:00", "22:00")
+)

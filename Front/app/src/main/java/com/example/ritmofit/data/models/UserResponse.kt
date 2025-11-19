@@ -16,7 +16,8 @@ data class UserProfile(
     val birthDate: String? = null,
     val phoneNumber: String? = null,
     val address: String? = null,
-    val profilePhotoUrl: String? = null
+    val profilePhotoUrl: String? = null,
+    val trainingPreferences: TrainingPreferences? = null
 )
 
 @Serializable

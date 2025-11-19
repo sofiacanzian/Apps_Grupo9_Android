@@ -18,5 +18,6 @@ data class User(
 
     @Contextual
     val birthDate: Date? = null,
-    val profilePhotoUrl: String? = null
+    val profilePhotoUrl: String? = null,
+    val trainingPreferences: TrainingPreferences? = null
 )
