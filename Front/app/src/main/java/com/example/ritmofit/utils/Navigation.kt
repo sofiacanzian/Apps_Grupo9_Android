@@ -47,6 +47,7 @@ import com.example.ritmofit.ui.theme.classes.ClassDetailViewModel
 import com.example.ritmofit.ui.theme.history.HistoryViewModel
 import com.example.ritmofit.profile.ProfileViewModel
 import com.example.ritmofit.ui.theme.reservation.ReservationsViewModel
+import com.example.ritmofit.preferences.PreferencesScreen
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -87,6 +88,7 @@ fun RitmoFitNavigation() {
                         "history" -> Text("Historial")
                         "classDetail/{classId}" -> Text("Detalles de Clase")
                         "qrscanner" -> Text("Escaner QR")
+                        "preferences" -> Text("Preferencias")
                         else -> Text("RitmoFit")
                     }
                 },
@@ -124,6 +126,7 @@ fun RitmoFitNavigation() {
                 HomeScreen(
                     onNavigateToReservations = { navController.navigate("reservations") },
                     onNavigateToProfile = { navController.navigate("profile") },
+                    onNavigateToPreferences = { navController.navigate("preferences") },
                     onNavigateToQrScanner = { navController.navigate("qrscanner") },
                     onNavigateToHistory = { navController.navigate("history") },
                     onNavigateToClasses = { navController.navigate("classes") },
@@ -152,6 +155,13 @@ fun RitmoFitNavigation() {
                     onLogout = {
                         authViewModel.logout()
                     },
+                    profileViewModel = profileViewModel
+                )
+            }
+
+            composable("preferences") {
+                val profileViewModel: ProfileViewModel = viewModel(factory = ProfileViewModel.Factory)
+                PreferencesScreen(
                     profileViewModel = profileViewModel
                 )
             }

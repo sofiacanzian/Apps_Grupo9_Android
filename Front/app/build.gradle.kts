@@ -87,6 +87,7 @@ dependencies {
     // Versiones eliminadas para que usen la BOM
     implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.compose.foundation:foundation")
+    implementation("androidx.compose.foundation:foundation-layout") // <- AÑADIDA
 
 
     // --- DEPENDENCIAS CLAVE DEL PROYECTO ---

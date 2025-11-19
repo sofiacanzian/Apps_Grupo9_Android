@@ -31,7 +31,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.compose.ui.platform.LocalLifecycleOwner
+
 
 // Imports de Íconos
 import androidx.compose.material.icons.Icons
@@ -41,6 +42,7 @@ import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Star
 
 // Imports de Datos y Modelos
 import com.example.ritmofit.data.models.GymClass
@@ -60,6 +62,7 @@ import java.util.Date
 fun HomeScreen(
     onNavigateToReservations: () -> Unit,
     onNavigateToProfile: () -> Unit,
+    onNavigateToPreferences: () -> Unit,
     onNavigateToQrScanner: () -> Unit,
     onNavigateToHistory: () -> Unit,
     onNavigateToClasses: () -> Unit,
@@ -152,6 +155,12 @@ fun HomeScreen(
                 )
                 NavigationBarItem(
                     selected = false,
+                    onClick = onNavigateToPreferences,
+                    icon = { Icon(Icons.Default.Star, contentDescription = "Preferencias") },
+                    label = { Text("Preferencias") }
+                )
+                NavigationBarItem(
+                    selected = false,
                     onClick = onNavigateToProfile,
                     icon = { Icon(Icons.Default.Person, contentDescription = "Perfil") },
                     label = { Text("Perfil") }
@@ -191,7 +200,7 @@ fun HomeScreen(
 
             PreferenceBanner(
                 state = preferencesState,
-                onCustomize = onNavigateToProfile,
+                onCustomize = onNavigateToPreferences,
                 onRetry = homeViewModel::fetchTrainingPreferences
             )
 

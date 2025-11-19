@@ -8,7 +8,8 @@ const jwt = require('jsonwebtoken');
 // No se usa, se puede remover
 
 const app = express();
-const port = process.env.PORT || 4000;
+const port = process.env.PORT || 3000;
+
 // 🔑 CLAVE SECRETA PARA FIRMAR LOS TOKENS JWT
 // ¡IMPORTANTE! En producción, esto debe estar en una variable de entorno.
 const JWT_SECRET = process.env.JWT_SECRET || 'tu_clave_secreta_super_segura_aqui'; 
@@ -1149,10 +1150,6 @@ res.status(500).json({ message: 'Error al obtener el historial de asistencias', 
 });
 // Iniciar el servidor
 app.listen(port, () => {
-    const routes = app._router ? app._router.stack
-        .filter(r => r.route && r.route.path)
-        .map(r => `${Object.keys(r.route.methods).join(',').toUpperCase()} ${r.route.path}`) : [];
-    fs.writeFileSync('routes-debug.log', routes.join('\n'), 'utf8');
-    console.log('Rutas registradas:', routes);
     console.log(`Servidor escuchando en http://localhost:${port}`);
 });
+
