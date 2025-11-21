@@ -1,4 +1,3 @@
-// Archivo: ClassesViewModel.kt (Final - Listo para usar)
 package com.example.ritmofit.ui.theme.classes
 
 import androidx.lifecycle.ViewModel

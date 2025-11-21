@@ -1,5 +1,3 @@
-// Archivo: build.gradle.kts(app) (CORREGIDO)
-
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -46,7 +44,6 @@ android {
     }
 
     composeOptions {
-        // La versión del compilador de Compose ahora se maneja con el plugin
     }
 
     packaging {
@@ -69,11 +66,6 @@ dependencies {
 
 
     // --- DEPENDENCIAS DE COMPOSE Y MATERIAL 3 ---
-    // ❌ ELIMINADA: Esta línea causaba el error de resolución. El contenido está en 'material3'.
-    // implementation("androidx.compose.material3:material3-experimental")
-// build.gradle (app)
-
-        // ...
     implementation("androidx.compose.material3:material3")
         // Asegúrate de tener también la de íconos
     implementation("androidx.compose.material:material-icons-extended")

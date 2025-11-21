@@ -1,4 +1,3 @@
-// Archivo: ProfileViewModel.kt
 package com.example.ritmofit.profile
 
 import androidx.lifecycle.ViewModel

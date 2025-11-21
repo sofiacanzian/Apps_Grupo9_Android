@@ -1,4 +1,3 @@
-// Archivo: ReservationsScreen.kt
 package com.example.ritmofit.ui.theme.reservation
 
 import androidx.compose.foundation.clickable

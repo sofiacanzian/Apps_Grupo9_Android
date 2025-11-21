@@ -1,4 +1,3 @@
-// Archivo: HomeScreen.kt (MODIFICADO Y COMPLETO)
 package com.example.ritmofit.home
 
 import androidx.compose.material3.DatePicker

@@ -1,4 +1,3 @@
-// Archivo: AppContainer.kt
 package com.example.ritmofit.di
 
 import com.example.ritmofit.network.ApiService

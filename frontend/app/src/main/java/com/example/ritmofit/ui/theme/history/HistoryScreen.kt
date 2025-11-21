@@ -1,4 +1,3 @@
-// Archivo: HistoryScreen.kt
 package com.example.ritmofit.ui.theme.history
 
 import androidx.compose.foundation.clickable

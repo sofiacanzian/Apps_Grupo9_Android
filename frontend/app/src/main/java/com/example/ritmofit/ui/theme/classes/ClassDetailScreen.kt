@@ -1,4 +1,3 @@
-// Archivo: ClassDetailScreen.kt (Corregido)
 package com.example.ritmofit.ui.theme.classes
 
 import androidx.compose.foundation.layout.*

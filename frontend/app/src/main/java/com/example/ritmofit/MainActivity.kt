@@ -1,4 +1,3 @@
-// Archivo: MainActivity.kt (Corregido)
 package com.example.ritmofit
 
 import android.os.Bundle

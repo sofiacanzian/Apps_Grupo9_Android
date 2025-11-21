@@ -1,4 +1,3 @@
-// Archivo: ClassesScreen.kt (CORREGIDO)
 package com.example.ritmofit.ui.theme.classes
 
 import androidx.compose.foundation.clickable
